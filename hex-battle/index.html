@@ -112,6 +112,14 @@ button.uchip.on{border-color:var(--blue);background:var(--blue-l);box-shadow:0 0
 .tgt.on{fill:rgba(190,40,30,.4);stroke-dasharray:none;stroke-width:4}
 .selring{fill:none;stroke:var(--brass-hi);stroke-width:3.5}
 .flash{fill:rgba(255,230,140,.35);stroke:#ffd36b;stroke-width:3}
+.rng-art{fill:rgba(214,120,30,.38);stroke:#b8611a;stroke-width:1.5}
+.rng-arc{fill:rgba(90,140,50,.38);stroke:#4d7a2c;stroke-width:1.5}
+.rng-both{fill:rgba(214,120,30,.38);stroke:#4d7a2c;stroke-width:3}
+.seg{display:inline-flex;border-radius:9px;overflow:hidden;border:1.5px solid var(--wood-2)}
+.seg button{border:0;padding:7px 12px;font-weight:800;background:#f6edd6;cursor:pointer;font-size:13.5px}
+.seg button.on{background:var(--wood-2);color:var(--parch)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-soft)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .dz{fill:rgba(43,82,143,.16);stroke:rgba(43,82,143,.55);stroke-width:1.5}
 .infohex{fill:none;stroke:var(--ink);stroke-width:2;stroke-dasharray:3 3}
 @keyframes pulse{50%{stroke-opacity:.35}}
@@ -806,7 +814,23 @@ function startBattle() {
 }
 
 /* ================= player interaction ================= */
-function clearSel() { G.sel = null; G.reach = null; G.split = null; G.target = null; G.info = null; }
+function clearSel() { G.sel = null; G.reach = null; G.split = null; G.target = null; G.info = null; G.view = 'move'; }
+const hasRanged = s => s.units.some(u => u.t === 'arc' || u.t === 'art');
+function rangeHexes(s) {
+  const out = []; const ar = s.units.some(u => u.t === 'arc') ? arcRange(s.c, s.r) : 0, art = s.units.some(u => u.t === 'art');
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const d = dist(s, { c, r }); if (!d) continue;
+    const a = d <= ar, b = art && d >= 2 && d <= 3;
+    if (a || b) out.push({ c, r, cls: a && b ? 'rng-both' : b ? 'rng-art' : 'rng-arc' });
+  }
+  return out;
+}
+function rangeLegend(s) {
+  const parts = [];
+  if (s.units.some(u => u.t === 'art')) parts.push(`<span><i style="background:rgba(214,120,30,.6)"></i>Artillery: 2–3 hexes</span>`);
+  if (s.units.some(u => u.t === 'arc')) parts.push(`<span><i style="background:rgba(90,140,50,.6)"></i>Archers: ${arcRange(s.c, s.r) === 3 ? '1–3 hexes (hill)' : '1–2 hexes'}</span>`);
+  return `<div class="legend">${parts.join('')}</div>`;
+}
 function selUnits() { return G.split ? G.sel.units.filter((u, i) => G.split.has(i)) : G.sel.units; }
 function select(s) { clearSel(); G.sel = s; computeReach(); }
 function computeReach() { G.reach = G.sel ? reachable(G.sel, selUnits()) : null; if (G.split && !G.split.size) G.reach = new Map(); }
@@ -828,7 +852,7 @@ function handleHex(c, r) {
       if (opt) { if (G.target === s) playerAttack(); else { G.target = s; render(); } return; }
     }
     const node = G.reach && G.reach.get(key(c, r));
-    if (node && node.canEnd) { playerMove(node); return; }
+    if (node && node.canEnd && G.view !== 'range') { playerMove(node); return; }
     if (s === G.sel) { clearSel(); render(); return; }
   }
   if (s && s.side === 'P') { select(s); render(); return; }
@@ -919,9 +943,11 @@ function renderOverlay() {
   let h = '';
   if (G.phase === 'deploy') for (let r = ROWS - 2; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (inDeploy(c, r)) h += `<polygon class="dz" points="${hexPts(c, r, .94)}"/>`;
   if (G.info && !G.info.stack) h += `<polygon class="infohex" points="${hexPts(G.info.c, G.info.r, .9)}"/>`;
+  if (G.info && G.info.stack && G.info.range) for (const x of rangeHexes(G.info.stack)) h += `<polygon class="${x.cls}" points="${hexPts(x.c, x.r, .9)}"/>`;
   if (G.info && G.info.stack) h += `<polygon class="infohex" points="${hexPts(G.info.stack.c, G.info.stack.r, .9)}"/>`;
   if (G.sel) {
-    if (G.reach) for (const n of G.reach.values()) if (n.canEnd) h += `<polygon class="reach${n.merge ? ' merge' : ''}" points="${hexPts(n.c, n.r, .86)}"/>`;
+    if (G.view === 'range') for (const x of rangeHexes(G.sel)) h += `<polygon class="${x.cls}" points="${hexPts(x.c, x.r, .9)}"/>`;
+    else if (G.reach) for (const n of G.reach.values()) if (n.canEnd) h += `<polygon class="reach${n.merge ? ' merge' : ''}" points="${hexPts(n.c, n.r, .86)}"/>`;
     h += `<polygon class="selring" points="${hexPts(G.sel.c, G.sel.r, .93)}"/>`;
     if (!G.split) for (const o of targetsFor(G.sel)) h += `<polygon class="tgt${o.t === G.target ? ' on' : ''}" points="${hexPts(o.t.c, o.t.r, .9)}"/>`;
   }
@@ -997,6 +1023,11 @@ function renderPanel() {
     h += `<div class="p-head"><span class="sw P"></span><h3>Your stack</h3><span class="muted small">${s.units.length}/10 units</span></div>`;
     h += `<div class="tags"><span class="tag">Moves left ${Math.max(0, mp)}</span><span class="tag">${terrLine(s.c, s.r)}</span>${enemyAdj('P', s.c, s.r) ? '<span class="tag" style="background:var(--red-l)">Engaged</span>' : ''}</div>`;
     if (G.target && !G.split) h += attackHTML(s, G.target);
+    if (hasRanged(s) && !G.split) {
+      const art = s.units.filter(u => u.t === 'art');
+      h += `<div class="acts" style="align-items:center"><div class="seg" role="group" aria-label="Map view"><button data-act="vmove" class="${G.view !== 'range' ? 'on' : ''}" aria-pressed="${G.view !== 'range'}">Moves</button><button data-act="vrange" class="${G.view === 'range' ? 'on' : ''}" aria-pressed="${G.view === 'range'}">Fire range</button></div></div>`;
+      if (G.view === 'range') h += rangeLegend(s) + (art.length && art.some(u => u.used > 0 || u.att) ? '<div class="hint">This artillery has already moved or fired, so it can\'t fire again this turn.</div>' : art.length ? '<div class="hint">Artillery can\'t fire after moving. Fire first, or stay put.</div>' : '');
+    }
     h += unitChips(s, { split: !!G.split });
     if (G.split) {
       h += `<div class="hint">Tap units to choose who splits off (${G.split.size} chosen), then tap a pale hex to send them there.</div>`;
@@ -1004,7 +1035,7 @@ function renderPanel() {
     } else if (!G.target) {
       const tg = targetsFor(s);
       const parts = [];
-      if (G.reach && [...G.reach.values()].some(n => n.canEnd)) parts.push('Tap a pale hex to move');
+      if (G.view !== 'range' && G.reach && [...G.reach.values()].some(n => n.canEnd)) parts.push('Tap a pale hex to move');
       if (tg.length) parts.push(`tap a red ring to attack (${tg.length} target${tg.length > 1 ? 's' : ''})`);
       h += `<div class="hint">${parts.length ? parts.join(', ') + '.' : 'This stack has finished for this turn.'}</div>`;
       h += `<div class="acts">${s.units.length > 1 && mp > 0 ? '<button class="btn plain" data-act="split">Split</button>' : ''}<button class="btn plain" data-act="desel">Done</button></div>`;
@@ -1029,6 +1060,7 @@ function infoHTML() {
     const s = i.stack, show = s.side === 'P' || s.seen || G.phase === 'over';
     let h = `<div class="p-head"><span class="sw ${s.side}"></span><h3>${s.side === 'P' ? 'Your stack' : 'Red stack'}</h3><span class="muted small">${terrLine(s.c, s.r)}</span></div>`;
     if (show) h += unitChips(s);
+    if (show && hasRanged(s)) h += `<div class="acts"><button class="btn plain" data-act="irange">${i.range ? 'Hide fire range' : 'Show fire range'}</button></div>` + (i.range ? rangeLegend(s) : '');
     else h += `<div class="hint">Contents hidden. Size <b>${sizeCat(s.units.length)}</b> (${{ S: '1–3', M: '4–6', L: '7–10' }[sizeCat(s.units.length)]} units). Move next to it or bring cavalry within 2 hexes to see inside.</div>`;
     return h;
   }
@@ -1105,10 +1137,13 @@ $('#panelIn').addEventListener('click', e => {
   else if (a === 'auto') autoPlace();
   else if (a === 'clear') clearDeploy();
   else if (a === 'start') { if (!TYPES.some(t => G.pool[t])) startBattle(); }
-  else if (a === 'split') { G.split = new Set(); G.target = null; computeReach(); }
+  else if (a === 'split') { G.split = new Set(); G.target = null; G.view = 'move'; computeReach(); }
   else if (a === 'unsplit') { G.split = null; computeReach(); }
   else if (a === 'chip') { const i = +b.dataset.i; if (G.split.has(i)) G.split.delete(i); else G.split.add(i); if (G.split.size === G.sel.units.length) G.split.delete(i); computeReach(); }
   else if (a === 'desel') clearSel();
+  else if (a === 'vmove') G.view = 'move';
+  else if (a === 'vrange') { G.view = 'range'; G.target = null; }
+  else if (a === 'irange') G.info.range = !G.info.range;
   else if (a === 'attack') { playerAttack(); return; }
   else if (a === 'cancelAtk') G.target = null;
   else if (a === 'new') { $('#overOv').hidden = true; newGame(); return; }
