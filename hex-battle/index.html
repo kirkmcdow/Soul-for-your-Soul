@@ -1,0 +1,1175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hexfield</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Alegreya+Sans:wght@400;500;700;800&display=swap">
+<style>
+/* Layout: one-screen tabletop. Wooden command bar on top, parchment map filling the middle,
+   a field-orders panel below (phones) or to the right (wide screens). Single deliberate look. */
+:root{
+  --parch:#ecdfbf; --parch-2:#ddca9c; --parch-3:#cbb27c;
+  --ink:#2a1f14; --ink-soft:#6a5638;
+  --wood:#3b2817; --wood-2:#5a3f26; --wood-hi:#7a5733;
+  --blue:#2b528f; --blue-d:#1b355e; --blue-l:#cfdcf0;
+  --red:#9e2f28; --red-d:#5e1914; --red-l:#f0d2cc;
+  --brass:#c69a3f; --brass-hi:#e9c877;
+  --ok:#5d8a3c;
+  --f-display:"IM Fell English SC", "Iowan Old Style", Georgia, serif;
+  --f-body:"Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--wood);color:var(--ink);font-family:var(--f-body);font-size:15px;overflow:hidden;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit}
+button:focus-visible{outline:2px solid var(--brass-hi);outline-offset:2px}
+#app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);grid-template-columns:minmax(0,1fr)}
+
+/* command bar */
+#bar{background:linear-gradient(#4a321c,var(--wood));border-bottom:2px solid #1f150b;color:var(--parch);
+  padding-top:env(safe-area-inset-top,0px)}
+.bar-in{display:flex;align-items:center;gap:10px;padding-block:8px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{font-family:var(--f-display);font-size:22px;letter-spacing:.02em;line-height:1;color:var(--brass-hi)}
+#turnChip{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;
+  background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.12);white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#turnChip .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:0}
+.sp{flex:1;min-width:0}
+.btn{border:0;border-radius:8px;padding:9px 14px;font-weight:800;cursor:pointer;letter-spacing:.02em;white-space:nowrap}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:linear-gradient(var(--brass-hi),var(--brass));color:#2a1a08;box-shadow:0 2px 0 #7a5a1c,inset 0 1px 0 rgba(255,255,255,.4)}
+.btn.primary:active:not(:disabled){transform:translateY(1px);box-shadow:0 1px 0 #7a5a1c}
+.btn.ghost{background:rgba(255,255,255,.08);color:var(--parch);border:1px solid rgba(255,255,255,.18)}
+.btn.plain{background:var(--parch-2);color:var(--ink);box-shadow:0 2px 0 var(--parch-3)}
+.btn.danger{background:var(--red);color:#fff;box-shadow:0 2px 0 var(--red-d)}
+.btn.blue{background:var(--blue);color:#fff;box-shadow:0 2px 0 var(--blue-d)}
+.btn.round{width:38px;height:38px;padding:0;border-radius:50%;font-size:18px}
+
+/* map + panel */
+#main{display:flex;flex-direction:column;min-height:0;min-width:0}
+#mapwrap{position:relative;flex:1;min-height:0;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 40%,#e9dab4 0%,#d6c08c 70%,#b89a62 100%)}
+#board{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block;cursor:grab}
+#zoomCtl{position:absolute;right:max(10px,env(safe-area-inset-right,0px));top:10px;display:flex;flex-direction:column;gap:6px}
+#zoomCtl button{width:36px;height:36px;border-radius:8px;border:1px solid rgba(60,40,20,.35);background:rgba(236,223,191,.92);
+  font-weight:800;font-size:18px;cursor:pointer;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+#panel{background:var(--parch);border-top:3px solid var(--wood-2);height:clamp(190px,34%,300px);flex:none;overflow:auto;
+  box-shadow:0 -4px 12px rgba(0,0,0,.25);padding-bottom:env(safe-area-inset-bottom,0px)}
+#panelIn{padding-block:12px 14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:10px}
+@media (min-width:880px){
+  #main{flex-direction:row}
+  #panel{height:auto;width:350px;border-top:0;border-left:3px solid var(--wood-2);box-shadow:-4px 0 12px rgba(0,0,0,.25)}
+}
+
+/* panel content */
+.p-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.p-head h3{margin:0;font-family:var(--f-display);font-weight:400;font-size:21px;line-height:1.1}
+.muted{color:var(--ink-soft)}
+.small{font-size:13px}
+.sw{width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
+.sw.P{background:var(--blue)} .sw.A{background:var(--red)}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:5px;background:var(--parch-2);color:var(--ink)}
+.units{display:flex;flex-wrap:wrap;gap:6px}
+.uchip{display:inline-flex;align-items:center;gap:6px;padding:5px 9px 5px 6px;border-radius:8px;background:#f6edd6;
+  border:1.5px solid var(--parch-3);font-size:13px;font-weight:700;line-height:1}
+.uchip svg{width:20px;height:20px;flex:none}
+.uchip .pips{letter-spacing:1px;font-size:11px}
+.uchip .pips b{color:var(--ok)} .uchip .pips i{color:#b9a47a;font-style:normal}
+.uchip.spent{opacity:.55}
+button.uchip{cursor:pointer}
+button.uchip.on{border-color:var(--blue);background:var(--blue-l);box-shadow:0 0 0 2px var(--blue) inset}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.hint{font-size:13px;color:var(--ink-soft);line-height:1.4}
+.log{border-top:1px dashed var(--parch-3);padding-top:8px;display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--ink-soft)}
+.log div:first-child{color:var(--ink)}
+.atkcard{background:#f7eedb;border:1.5px solid var(--red);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.atkcard .row{display:flex;justify-content:space-between;gap:4px 10px;font-size:14px;flex-wrap:wrap}
+.atkcard .big{font-weight:800;font-variant-numeric:tabular-nums}
+.tray{display:flex;gap:8px;flex-wrap:wrap}
+.tray button{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:9px;border:1.5px solid var(--parch-3);background:#f6edd6;
+  font-weight:800;cursor:pointer}
+.tray button svg{width:22px;height:22px}
+.tray button.on{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue) inset;background:var(--blue-l)}
+.tray button:disabled{opacity:.4;cursor:default}
+.tray .n{font-variant-numeric:tabular-nums;background:var(--wood-2);color:var(--parch);border-radius:5px;padding:1px 6px;font-size:12px}
+
+/* SVG board classes */
+.tok{transition:transform .38s cubic-bezier(.3,.7,.3,1);}
+.tok.spent>*{opacity:.62}
+.badge{font:800 10.5px var(--f-body);fill:#fff}
+.qmark{font:400 24px var(--f-display)}
+.reach{fill:rgba(255,253,235,.42);stroke:#fffbe8;stroke-width:2}
+.reach.merge{fill:rgba(190,215,255,.45);stroke:#e9f1ff}
+.tgt{fill:rgba(190,40,30,.22);stroke:#b3261e;stroke-width:3;stroke-dasharray:6 4}
+.tgt.on{fill:rgba(190,40,30,.4);stroke-dasharray:none;stroke-width:4}
+.selring{fill:none;stroke:var(--brass-hi);stroke-width:3.5}
+.flash{fill:rgba(255,230,140,.35);stroke:#ffd36b;stroke-width:3}
+.dz{fill:rgba(43,82,143,.16);stroke:rgba(43,82,143,.55);stroke-width:1.5}
+.infohex{fill:none;stroke:var(--ink);stroke-width:2;stroke-dasharray:3 3}
+@keyframes pulse{50%{stroke-opacity:.35}}
+.selring,.tgt.on{animation:pulse 1.2s ease-in-out infinite}
+
+/* overlays */
+.ov{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
+  background:rgba(25,15,6,.62);padding:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet{background:var(--parch);border-radius:14px;max-width:760px;width:100%;max-height:100%;overflow:auto;
+  box-shadow:0 20px 50px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.4);border:3px solid var(--wood-2)}
+.sheet-in{padding:18px 18px 20px;display:flex;flex-direction:column;gap:14px}
+.sheet h2{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;line-height:1.05;text-wrap:balance}
+.sheet h4{margin:0;font-family:var(--f-display);font-weight:400;font-size:19px}
+.sheet p{margin:0;line-height:1.45;max-width:65ch}
+.lede{color:var(--ink-soft)}
+.budget{display:flex;align-items:center;gap:12px;position:sticky;top:-18px;background:var(--parch);padding:8px 0;z-index:2}
+.budget .bar{flex:1;height:12px;border-radius:6px;background:var(--parch-2);overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
+.budget .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--brass),var(--brass-hi));transition:width .2s}
+.budget b{font-variant-numeric:tabular-nums;font-size:18px;white-space:nowrap}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
+.ucard{display:grid;grid-template-columns:52px 1fr;gap:4px 12px;background:#f6edd6;border:1.5px solid var(--parch-3);border-radius:12px;padding:12px;min-width:0}
+.ucard .ic{grid-row:span 3;width:52px;height:52px}
+.ucard .nm{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.ucard .nm b{font-family:var(--f-display);font-weight:400;font-size:21px}
+.cost{font-weight:800;font-size:13px;background:var(--wood-2);color:var(--parch);border-radius:5px;padding:2px 7px;white-space:nowrap}
+.stats{display:flex;gap:10px;flex-wrap:wrap;font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft)}
+.stats span b{color:var(--ink);font-size:14px}
+.spec{font-size:13.5px;line-height:1.35}
+.step{grid-column:2;display:flex;align-items:center;gap:10px;margin-top:4px}
+.step button{width:36px;height:36px;border-radius:9px;border:0;background:var(--wood-2);color:var(--parch);font-size:20px;font-weight:800;cursor:pointer}
+.step button:disabled{opacity:.35;cursor:default}
+.step output{min-width:28px;text-align:center;font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
+.sheet-acts{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.rules{display:grid;gap:10px}
+.rules section{display:flex;flex-direction:column;gap:4px}
+table.ter{border-collapse:collapse;font-size:13.5px;width:100%}
+table.ter td,table.ter th{padding:5px 8px;border-bottom:1px solid var(--parch-3);text-align:left;vertical-align:top}
+table.ter th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft)}
+table.ter td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.tw{overflow-x:auto}
+
+/* combat */
+#combat .sheet{max-width:520px}
+.ph{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px dashed var(--parch-3)}
+.phl{font-weight:800;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.phl .muted{font-weight:500}
+.dice{display:flex;flex-wrap:wrap;gap:6px}
+.dw{display:flex;flex-direction:column;align-items:center;gap:2px}
+.dw svg{width:14px;height:14px}
+.die{width:34px;height:34px;border-radius:7px;background:#fbf6e8;border:2px solid #b6a275;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);
+  padding:4px;box-shadow:0 2px 0 rgba(0,0,0,.25);animation:tumble .55s cubic-bezier(.2,.8,.3,1) both}
+.die i{width:6px;height:6px;border-radius:50%;place-self:center;background:transparent}
+.die i.on{background:var(--ink)}
+.die.hit{border-color:var(--ok);background:#eef6dd}
+.die.miss{opacity:.55}
+.die.wound{border-color:var(--red);background:#f7dcd6}
+.die.wound i.on{background:var(--red-d)}
+.die.saved{border-color:var(--blue);background:#e3ebf8}
+.die.sm{width:28px;height:28px;padding:3px}
+.die.sm i{width:5px;height:5px}
+@keyframes tumble{0%{transform:translateY(-14px) rotate(-200deg) scale(.6);opacity:0}100%{transform:none;opacity:1}}
+.result{font-weight:800;font-size:15px;line-height:1.4;border-top:2px solid var(--parch-3);padding-top:10px}
+.title-big{font-family:var(--f-display);font-size:46px;line-height:1;text-align:center}
+@media (prefers-reduced-motion:reduce){.die{animation:none}.tok{transition:none}.selring,.tgt.on{animation:none}}
+@media (max-width:420px){.brand{font-size:19px}#turnChip{font-size:11.5px;padding:4px 8px}.btn{padding:8px 11px}.sheet h2{font-size:26px}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="bar"><div class="bar-in">
+    <div class="brand">Hexfield</div>
+    <div id="turnChip"></div>
+    <div class="sp"></div>
+    <button id="helpBtn" class="btn ghost round" aria-label="Rules and new battle">?</button>
+    <button id="endBtn" class="btn primary">End turn</button>
+  </div></header>
+  <main id="main">
+    <div id="mapwrap">
+      <svg id="board" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="wood" cx="38%" cy="32%" r="75%">
+            <stop offset="0" stop-color="#f4dfb0"/><stop offset=".55" stop-color="#d7b077"/><stop offset="1" stop-color="#9c733f"/>
+          </radialGradient>
+          <symbol id="i-inf" viewBox="-10 -10 20 20">
+            <path d="M-7.5,-8.5 H7.5 V-1 Q7.5,6 0,9.5 Q-7.5,6 -7.5,-1 Z" fill="currentColor"/>
+            <path d="M0,-6 V6.5 M-4.2,-2.2 H4.2" stroke="#f6e9c8" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+          </symbol>
+          <symbol id="i-cav" viewBox="-10 -10 20 20">
+            <path d="M-6,-8 V0 A6,6 0 0 0 6,0 V-8" fill="none" stroke="currentColor" stroke-width="4.4" stroke-linecap="round"/>
+            <circle cx="-6" cy="-3" r="0.9" fill="#f6e9c8"/><circle cx="6" cy="-3" r="0.9" fill="#f6e9c8"/>
+            <circle cx="-4.6" cy="2.6" r="0.9" fill="#f6e9c8"/><circle cx="4.6" cy="2.6" r="0.9" fill="#f6e9c8"/>
+          </symbol>
+          <symbol id="i-arc" viewBox="-10 -10 20 20">
+            <path d="M-3.5,-9 Q9.5,0 -3.5,9" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>
+            <path d="M-3.5,-9 L-3.5,9" stroke="currentColor" stroke-width="1"/>
+            <path d="M-9.5,0 H6" stroke="currentColor" stroke-width="1.9"/>
+            <path d="M9.5,0 L4.5,-3.2 L4.5,3.2 Z" fill="currentColor"/>
+            <path d="M-9.5,0 l-1,-2.5 M-9.5,0 l-1,2.5" stroke="currentColor" stroke-width="1.2"/>
+          </symbol>
+          <symbol id="i-art" viewBox="-10 -10 20 20">
+            <g transform="rotate(-24)"><rect x="-8" y="-3.3" width="17" height="6.6" rx="2.4" fill="currentColor"/><circle cx="-7.5" cy="0" r="3.6" fill="currentColor"/></g>
+            <circle cx="-1.5" cy="5" r="4.3" fill="#f6e9c8" stroke="currentColor" stroke-width="2.1"/>
+            <circle cx="-1.5" cy="5" r="1.1" fill="currentColor"/>
+          </symbol>
+        </defs>
+        <g id="world"><g id="terrainG"></g><g id="overlayG"></g><g id="tokensG"></g><g id="topG"></g></g>
+      </svg>
+      <div id="zoomCtl">
+        <button id="zIn" aria-label="Zoom in">+</button>
+        <button id="zOut" aria-label="Zoom out">−</button>
+        <button id="zFit" aria-label="Fit map to screen">⤢</button>
+      </div>
+    </div>
+    <aside id="panel"><div id="panelIn"></div></aside>
+  </main>
+</div>
+
+<!-- Muster (point buy) -->
+<div id="buyOv" class="ov" hidden>
+  <div class="sheet"><div class="sheet-in">
+    <h2>Muster your army</h2>
+    <p class="lede">Spend 30 points on troops. Red has already chosen its army and is waiting across the river. You will see where its stacks stand, but not what is inside them.</p>
+    <div class="budget"><b id="budgetTxt">0 / 30</b><div class="bar"><i id="budgetBar"></i></div></div>
+    <div class="cards" id="buyCards"></div>
+    <div class="sheet-acts">
+      <button class="btn plain" id="buyClear">Clear</button>
+      <button class="btn plain" id="buyPreset">Balanced army</button>
+      <button class="btn primary" id="buyGo">Deploy army</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- Rules -->
+<div id="helpOv" class="ov" hidden>
+  <div class="sheet"><div class="sheet-in">
+    <h2>Field manual</h2>
+    <div class="rules">
+      <section><h4>How to win</h4><p>Destroy every Red stack, or end your turn with one of your stacks standing on Red's fort (the hex with the red flag at the top of the map).</p></section>
+      <section><h4>Your turn</h4><p>Tap a stack, then tap a pale hex to move or a red ring to attack. Each stack may move, then attack once. Attacking ends that stack's turn. Press <b>End turn</b> when you're done.</p></section>
+      <section><h4>Stacks</h4><p>A stack holds up to 10 units of any mix and moves at the speed of its slowest unit. Use <b>Split</b> to send some units off on their own. Move onto your own stack to merge.</p></section>
+      <section><h4>Zones of control</h4><p>Moving next to an enemy stack stops you. Leaving a hex next to an enemy uses all of your remaining movement.</p></section>
+      <section><h4>Combat</h4><p>Each attacking unit rolls one die and hits on <b>6 − attack</b> or higher (never better than 2+). For every hit, the unit struck rolls a save and blocks the hit on a roll at or below its defense (never better than 4). Archers and artillery fire first. Then infantry and cavalry fight in melee, and the defender strikes back with everything except artillery. Hits land on the front line first: infantry, then cavalry, archers, artillery. If you wipe out a stack in melee, you advance into its hex.</p></section>
+      <section><h4>Hidden armies</h4><p>You can see how big an enemy stack is (S = 1–3 units, M = 4–6, L = 7–10) but not what's in it. Its units are revealed once you're next to it, have cavalry within 2 hexes, or have fought it. Splitting or merging hides a stack again. Red plays by the same rules.</p></section>
+      <section><h4>Rest</h4><p>Units that neither move nor fight during their turn heal 1 HP, or 2 HP in a village or fort. A stack next to an enemy can't rest.</p></section>
+      <section><h4>Terrain</h4>
+        <div class="tw"><table class="ter">
+          <thead><tr><th>Terrain</th><th>Move cost</th><th>Defense</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>Plains</td><td class="n">1</td><td class="n">—</td><td>Open ground</td></tr>
+            <tr><td>Forest</td><td class="n">2 (cavalry 3)</td><td class="n">+1</td><td>Cavalry gets no cover here and can't charge into it</td></tr>
+            <tr><td>Hill</td><td class="n">2</td><td class="n">+1</td><td>Archers on a hill shoot 3 hexes</td></tr>
+            <tr><td>Village</td><td class="n">1</td><td class="n">+2</td><td>Resting units heal 2</td></tr>
+            <tr><td>Ford</td><td class="n">1</td><td class="n">−1</td><td>The only way across the river</td></tr>
+            <tr><td>Fort</td><td class="n">1</td><td class="n">+2</td><td>Home base. Take the enemy's to win</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+    </div>
+    <div class="sheet-acts">
+      <button class="btn danger" id="helpNew">Start a new battle</button>
+      <button class="btn primary" id="helpClose">Back to the battle</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- Combat -->
+<div id="combat" class="ov" hidden>
+  <div class="sheet"><div class="sheet-in">
+    <h2 id="cbTitle"></h2>
+    <div id="cbBody"></div>
+    <div class="result" id="cbResult"></div>
+    <div class="sheet-acts"><button class="btn primary" id="cbClose">Continue</button></div>
+  </div></div>
+</div>
+
+<!-- Game over -->
+<div id="overOv" class="ov" hidden>
+  <div class="sheet" style="max-width:440px"><div class="sheet-in" style="align-items:center;text-align:center">
+    <div class="title-big" id="overTitle"></div>
+    <p id="overText"></p>
+    <p class="lede small" id="overPlan"></p>
+    <div class="sheet-acts" style="justify-content:center">
+      <button class="btn plain" id="overView">View the field</button>
+      <button class="btn primary" id="overNew">New battle</button>
+    </div>
+  </div></div>
+</div>
+
+<script>
+'use strict';
+/* ================= constants ================= */
+const COLS = 11, ROWS = 15, S = 30, SQ3 = Math.sqrt(3), PAD = 16, MAXSTACK = 10, BUDGET = 30;
+const BW = S * SQ3 * (COLS + 0.5) + PAD * 2, BH = S * 1.5 * (ROWS - 1) + S * 2 + PAD * 2;
+const OX = PAD + S * SQ3 / 2, OY = PAD + S;
+const NS = 'http://www.w3.org/2000/svg';
+const C = { blue: '#2b528f', blueD: '#1b355e', red: '#9e2f28', redD: '#5e1914' };
+const UNITS = {
+  inf: { name: 'Infantry', plural: 'Infantry', hp: 3, atk: 2, def: 2, mv: 2, cost: 1, order: 0,
+         spec: 'Shield wall: +1 defense while 2 or more infantry share the stack. Holds the front line and takes hits first.' },
+  cav: { name: 'Cavalry', plural: 'Cavalry', hp: 3, atk: 3, def: 2, mv: 4, cost: 3, order: 1,
+         spec: 'Charge: +1 attack after moving this turn (not into forest). Spots hidden stacks up to 2 hexes away.' },
+  arc: { name: 'Archer', plural: 'Archers', hp: 2, atk: 2, def: 1, mv: 2, cost: 2, order: 2,
+         spec: 'Volley: shoots 2 hexes (3 from a hill) before melee. Targets can\'t shoot back at range.' },
+  art: { name: 'Artillery', plural: 'Artillery', hp: 2, atk: 4, def: 1, mv: 1, cost: 4, order: 3,
+         spec: 'Bombard: fires 2–3 hexes and each hit strikes up to 3 random units. Can\'t fire after moving or at adjacent hexes.' },
+};
+const TYPES = ['inf', 'cav', 'arc', 'art'];
+const TER = {
+  plain:   { name: 'Plains',  cost: 1, def: 0 },
+  forest:  { name: 'Forest',  cost: 2, def: 1 },
+  hill:    { name: 'Hill',    cost: 2, def: 1 },
+  river:   { name: 'River',   cost: Infinity, def: 0 },
+  ford:    { name: 'Ford',    cost: 1, def: -1 },
+  village: { name: 'Village', cost: 1, def: 2 },
+  fort:    { name: 'Fort',    cost: 1, def: 2 },
+};
+const TER_NOTE = {
+  plain: 'Open ground. No cover.',
+  forest: '+1 defense, except for cavalry. Costs 2 to enter (3 for stacks with cavalry). Cavalry can\'t charge into it.',
+  hill: '+1 defense. Costs 2 to enter. Archers on a hill shoot 3 hexes.',
+  river: 'Impassable. Cross at a ford.',
+  ford: 'The only way across the river. −1 defense while standing in the water.',
+  village: '+2 defense. Resting units heal 2 HP here.',
+  fort: '+2 defense and heals 2. End your turn on the enemy fort to win.',
+};
+const PLANS = {
+  balanced: { name: 'Balanced line', agg: 1.0, stacks: [[2, 1, { inf: 4, arc: 1 }], [5, 1, { inf: 3, arc: 1, art: 2 }], [8, 1, { inf: 3, arc: 1 }], [1, 0, { cav: 2 }]] },
+  rush:     { name: 'Cavalry rush', agg: 1.35, stacks: [[1, 1, { cav: 3 }], [9, 1, { cav: 3 }], [4, 1, { inf: 4, arc: 1 }], [6, 1, { inf: 4, arc: 1 }]] },
+  guns:     { name: 'Grand battery', agg: 0.75, stacks: [[3, 1, { art: 2, inf: 3 }], [7, 1, { art: 2, inf: 3 }], [5, 0, { inf: 2, arc: 3 }]] },
+};
+const PRESET = { inf: 10, cav: 2, arc: 3, art: 2 };
+
+/* ================= helpers ================= */
+const $ = s => document.querySelector(s);
+const key = (c, r) => c + ',' + r;
+const sleep = ms => G.fast ? Promise.resolve() : new Promise(r => setTimeout(r, ms));
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const NB_E = [[1, 0], [0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]], NB_O = [[1, 0], [1, -1], [0, -1], [-1, 0], [0, 1], [1, 1]];
+function neighbors(c, r) { const out = []; for (const [dc, dr] of (r & 1) ? NB_O : NB_E) { const nc = c + dc, nr = r + dr; if (nc >= 0 && nc < COLS && nr >= 0 && nr < ROWS) out.push({ c: nc, r: nr }); } return out; }
+function cube(c, r) { return [c - (r - (r & 1)) / 2, r]; }
+function dist(a, b) { const [q1, r1] = cube(a.c, a.r), [q2, r2] = cube(b.c, b.r); const dq = q1 - q2, dr = r1 - r2; return (Math.abs(dq) + Math.abs(dr) + Math.abs(dq + dr)) / 2; }
+function hexXY(c, r) { return { x: OX + S * SQ3 * (c + 0.5 * (r & 1)), y: OY + S * 1.5 * r }; }
+function pixelToHex(x, y) {
+  const rf = (y - OY) / (1.5 * S), qf = (x - OX) / (S * SQ3) - rf / 2, sf = -qf - rf;
+  let q = Math.round(qf), r = Math.round(rf), s = Math.round(sf);
+  const dq = Math.abs(q - qf), dr = Math.abs(r - rf), ds = Math.abs(s - sf);
+  if (dq > dr && dq > ds) q = -r - s; else if (dr > ds) r = -q - s;
+  const c = q + (r - (r & 1)) / 2;
+  return (c >= 0 && c < COLS && r >= 0 && r < ROWS) ? { c, r } : null;
+}
+const ptsCache = {};
+function hexPts(c, r, scale = 1) {
+  const k = key(c, r) + scale; if (ptsCache[k]) return ptsCache[k];
+  const { x, y } = hexXY(c, r); const p = [];
+  for (let i = 0; i < 6; i++) { const a = Math.PI / 180 * (60 * i - 30); p.push((x + S * scale * Math.cos(a)).toFixed(1) + ',' + (y + S * scale * Math.sin(a)).toFixed(1)); }
+  return (ptsCache[k] = p.join(' '));
+}
+
+/* ================= state ================= */
+const G = {
+  phase: 'buy', map: null, seed: 1, turn: 1, side: 'P', stacks: [], nid: 1,
+  sel: null, reach: null, split: null, target: null, info: null, busy: false, flash: null,
+  buy: { ...PRESET }, pool: null, poolSel: null, aiPlan: 'balanced', log: [], fast: false, winner: null,
+  fortP: { c: 5, r: 14 }, fortA: { c: 5, r: 0 },
+};
+const terr = (c, r) => G.map[r][c];
+const enemyOf = s => s === 'P' ? 'A' : 'P';
+const fortOf = s => s === 'P' ? G.fortP : G.fortA;
+const sideName = s => s === 'P' ? 'Blue' : 'Red';
+const stackAt = (c, r) => G.stacks.find(s => s.c === c && s.r === r);
+const mkUnit = t => ({ t, hp: UNITS[t].hp, used: 0, att: false });
+const sizeCat = n => n <= 3 ? 'S' : n <= 6 ? 'M' : 'L';
+const valHP = t => UNITS[t].cost / UNITS[t].hp;
+const planOf = side => ({ agg: (side === 'A' ? PLANS[G.aiPlan].agg : 1) * (1 + Math.min(G.turn, 30) / 12) });
+function mpOf(units) { return units.length ? Math.min(...units.map(u => UNITS[u.t].mv - u.used)) : 0; }
+const fresh = units => units.every(u => u.used === 0 && !u.att);
+function pushLog(s) { G.log.unshift(s); G.log.length = Math.min(G.log.length, 6); }
+
+/* ================= map generation ================= */
+function genMap(seed) {
+  const rnd = mulberry32(seed);
+  const m = []; for (let r = 0; r < ROWS; r++) m.push(new Array(COLS).fill('plain'));
+  const half = Math.floor(ROWS / 2);
+  for (const [a, b] of [[0, 3], [4, 6], [7, 10]]) {
+    for (let t = 0; t < 30; t++) { const c = a + Math.floor(rnd() * (b - a + 1)), r = 2 + Math.floor(rnd() * 4); if (m[r][c] === 'plain') { m[r][c] = 'village'; break; } }
+  }
+  const cluster = (type, n, spread) => {
+    for (let i = 0; i < n; i++) {
+      const c = Math.floor(rnd() * COLS), r = 1 + Math.floor(rnd() * (half - 1));
+      if (m[r][c] !== 'plain') continue; m[r][c] = type;
+      for (const nb of neighbors(c, r)) if (nb.r >= 1 && nb.r < half && m[nb.r][nb.c] === 'plain' && rnd() < spread) m[nb.r][nb.c] = type;
+    }
+  };
+  cluster('forest', 4, 0.5); cluster('hill', 3, 0.4);
+  m[0][5] = 'fort'; for (const nb of neighbors(5, 0)) if (m[nb.r][nb.c] !== 'village') m[nb.r][nb.c] = 'plain';
+  for (let r = 0; r < half; r++) for (let c = 0; c < COLS; c++) m[ROWS - 1 - r][c] = m[r][c];
+  const fords = [Math.floor(rnd() * 3), 4 + Math.floor(rnd() * 3), 8 + Math.floor(rnd() * 3)];
+  for (let c = 0; c < COLS; c++) m[half][c] = fords.includes(c) ? 'ford' : 'river';
+  return m;
+}
+
+/* ================= movement ================= */
+function enemyAdj(side, c, r) { return neighbors(c, r).some(n => { const s = stackAt(n.c, n.r); return s && s.side !== side; }); }
+function stepCost(units, t) { return (t === 'forest' && units.some(u => u.t === 'cav')) ? 3 : TER[t].cost; }
+function reachable(stack, units) {
+  const res = new Map(); const mp = mpOf(units);
+  if (mp <= 0) return res;
+  const startZ = enemyAdj(stack.side, stack.c, stack.r), isFresh = units.every(u => u.used === 0);
+  const best = new Map([[key(stack.c, stack.r), mp]]);
+  const q = [{ c: stack.c, r: stack.r, rem: mp, start: true }];
+  while (q.length) {
+    q.sort((a, b) => b.rem - a.rem); const cur = q.shift(); if (cur.rem <= 0) continue;
+    for (const n of neighbors(cur.c, cur.r)) {
+      const occ = stackAt(n.c, n.r); if (occ && occ.side !== stack.side) continue;
+      const k = stepCost(units, terr(n.c, n.r)); if (k === Infinity) continue;
+      let rem;
+      if (cur.start && startZ) rem = 0;
+      else if (k <= cur.rem) rem = cur.rem - k;
+      else if (cur.start && isFresh) rem = 0;
+      else continue;
+      if (enemyAdj(stack.side, n.c, n.r)) rem = 0;
+      const kk = key(n.c, n.r);
+      if (best.has(kk) && best.get(kk) >= rem) continue;
+      best.set(kk, rem);
+      const merge = !!occ;
+      const canEnd = !merge || (occ !== stack && occ.units.length + units.length <= MAXSTACK);
+      res.set(kk, { c: n.c, r: n.r, rem, merge, canEnd, target: occ || null });
+      q.push({ c: n.c, r: n.r, rem });
+    }
+  }
+  return res;
+}
+function moveUnits(stack, units, node) {
+  const spent = mpOf(units) - node.rem;
+  for (const u of units) u.used = node.rem === 0 ? UNITS[u.t].mv : u.used + spent;
+  let mover = stack;
+  if (units.length < stack.units.length) {
+    stack.units = stack.units.filter(u => !units.includes(u)); stack.exposed = false;
+    mover = { id: G.nid++, side: stack.side, c: stack.c, r: stack.r, units: units.slice(), exposed: false };
+    G.stacks.push(mover);
+  }
+  mover.from = { c: mover.c, r: mover.r };
+  if (node.merge && node.target) {
+    node.target.units.push(...mover.units); node.target.exposed = false;
+    G.stacks.splice(G.stacks.indexOf(mover), 1);
+    return node.target;
+  }
+  mover.c = node.c; mover.r = node.r;
+  return mover;
+}
+
+/* ================= combat ================= */
+const roll = () => 1 + Math.floor(Math.random() * 6);
+const needHit = a => Math.max(2, Math.min(6, 6 - a));
+const arcRange = (c, r) => terr(c, r) === 'hill' ? 3 : 2;
+function atkOf(u, defTer, charge) { let a = UNITS[u.t].atk; if (u.t === 'cav' && (charge || u.used > 0) && defTer !== 'forest') a++; return a; }
+function defOf(u, units, ter) {
+  let d = UNITS[u.t].def, td = TER[ter].def;
+  if (u.t === 'cav' && ter === 'forest') td = 0;
+  d += td;
+  if (u.t === 'inf' && units.filter(x => x.t === 'inf' && x.hp > 0).length >= 2) d++;
+  return Math.max(0, Math.min(4, d));
+}
+function sortFront(units) { return units.filter(u => u.hp > 0).sort((a, b) => UNITS[a.t].order - UNITS[b.t].order || a.hp - b.hp); }
+function attackers(stack, target) {
+  const d = dist(stack, target);
+  const shooters = stack.units.filter(u => !u.att && (u.t === 'arc' ? d <= arcRange(stack.c, stack.r) : u.t === 'art' ? (u.used === 0 && d >= 2 && d <= 3) : false));
+  const melee = stack.units.filter(u => !u.att && d === 1 && (u.t === 'inf' || u.t === 'cav'));
+  return { d, shooters, melee };
+}
+function targetsFor(stack) {
+  if (stack.units.every(u => u.att)) return [];
+  return G.stacks.filter(s => s.side !== stack.side && dist(stack, s) <= 3)
+    .map(t => ({ t, ...attackers(stack, t) })).filter(o => o.shooters.length || o.melee.length);
+}
+function applyHit(stack, unit, saves) {
+  const d = defOf(unit, stack.units, terr(stack.c, stack.r)); const v = roll(); const saved = v <= d;
+  saves.push({ t: unit.t, v, saved }); if (!saved) unit.hp--;
+}
+function tally(stack) { const o = { hp: 0 }; for (const u of stack.units) if (u.hp > 0) { o[u.t] = (o[u.t] || 0) + 1; o.hp += u.hp; } return o; }
+function resolveCombat(att, def) {
+  const { d, shooters, melee } = attackers(att, def);
+  const defTer = terr(def.c, def.r);
+  const before = { a: tally(att), d: tally(def) };
+  const rec = { att: att.side, def: def.side, ter: defTer, d, phases: [] };
+  if (shooters.length) {
+    const ph = { label: shooters.some(u => u.t === 'art') ? (shooters.some(u => u.t === 'arc') ? 'Volley and bombardment' : 'Bombardment') : 'Volley', by: att.side, rolls: [], saves: [] };
+    for (const u of shooters) {
+      const n = needHit(UNITS[u.t].atk), v = roll(), hit = v >= n; ph.rolls.push({ t: u.t, v, hit, n });
+      if (!hit) continue;
+      if (u.t === 'art') { for (const x of shuffle(def.units.filter(x => x.hp > 0)).slice(0, 3)) applyHit(def, x, ph.saves); }
+      else { const f = sortFront(def.units)[0]; if (f) applyHit(def, f, ph.saves); }
+    }
+    rec.phases.push(ph);
+  }
+  if (melee.length && def.units.some(u => u.hp > 0)) {
+    const p1 = { label: 'Melee', by: att.side, rolls: [], saves: [] }, p2 = { label: 'Counterattack', by: def.side, rolls: [], saves: [] };
+    let aHits = 0, dHits = 0;
+    for (const u of melee) { const n = needHit(atkOf(u, defTer, false)), v = roll(), hit = v >= n; p1.rolls.push({ t: u.t, v, hit, n, charge: u.t === 'cav' && n < needHit(UNITS.cav.atk) }); if (hit) aHits++; }
+    for (const u of def.units.filter(u => u.hp > 0 && u.t !== 'art')) { const n = needHit(UNITS[u.t].atk), v = roll(), hit = v >= n; p2.rolls.push({ t: u.t, v, hit, n }); if (hit) dHits++; }
+    for (let i = 0; i < aHits; i++) { const f = sortFront(def.units)[0]; if (f) applyHit(def, f, p1.saves); }
+    for (let i = 0; i < dHits; i++) { const f = sortFront(att.units)[0]; if (f) applyHit(att, f, p2.saves); }
+    rec.phases.push(p1); if (p2.rolls.length) rec.phases.push(p2);
+  }
+  for (const u of att.units) { u.att = true; u.used = UNITS[u.t].mv; }
+  att.units = att.units.filter(u => u.hp > 0); def.units = def.units.filter(u => u.hp > 0);
+  att.exposed = def.exposed = true;
+  const after = { a: tally(att), d: tally(def) };
+  rec.loss = { [att.side]: diffLoss(before.a, after.a), [def.side]: diffLoss(before.d, after.d) };
+  rec.dmg = { [att.side]: before.a.hp - after.a.hp, [def.side]: before.d.hp - after.d.hp };
+  if (!def.units.length) {
+    G.stacks.splice(G.stacks.indexOf(def), 1); rec.wiped = def.side;
+    if (d === 1 && melee.length && att.units.length) { att.from = { c: att.c, r: att.r }; att.c = def.c; att.r = def.r; rec.advanced = true; }
+  }
+  if (!att.units.length) { G.stacks.splice(G.stacks.indexOf(att), 1); rec.wipedAtt = true; }
+  const lt = s => { const parts = TYPES.filter(t => rec.loss[s][t]).map(t => rec.loss[s][t] + ' ' + (rec.loss[s][t] > 1 ? UNITS[t].plural : UNITS[t].name)); return parts.length ? parts.join(', ') : 'none'; };
+  pushLog(`${sideName(att.side)} attacked at the ${TER[defTer].name.toLowerCase()}. Losses: ${sideName(att.side)} ${lt(att.side)}; ${sideName(def.side)} ${lt(def.side)}.`);
+  return rec;
+}
+function diffLoss(b, a) { const o = {}; for (const t of TYPES) { const n = (b[t] || 0) - (a[t] || 0); if (n > 0) o[t] = n; } return o; }
+
+/* ================= visibility ================= */
+function updateVisibility() {
+  for (const s of G.stacks) {
+    s.seen = !!s.exposed || G.stacks.some(o => o.side !== s.side && (dist(o, s) <= 1 || (dist(o, s) <= 2 && o.units.some(u => u.t === 'cav'))));
+  }
+}
+function knownUnits(s) {
+  if (s.seen) return s.units;
+  const n = { S: 2, M: 5, L: 8 }[sizeCat(s.units.length)];
+  return Array.from({ length: n }, () => mkUnit('inf'));
+}
+
+/* ================= expected values (AI + preview) ================= */
+const pHit = a => (7 - needHit(a)) / 6;
+const pFail = d => 1 - d / 6;
+function evDamage(shooters, defUnits, defTer, o = {}) {
+  const front = sortFront(defUnits)[0]; if (!front) return 0;
+  const fv = o.raw ? 1 : valHP(front.t), fd = defOf(front, defUnits, defTer);
+  let dmg = 0;
+  for (const u of shooters) {
+    const p = pHit(atkOf(u, defTer, o.charge));
+    if (u.t === 'art' && !o.melee) {
+      let avg = 0; for (const x of defUnits) avg += pFail(defOf(x, defUnits, defTer)) * (o.raw ? 1 : valHP(x.t));
+      dmg += p * Math.min(3, defUnits.length) * avg / defUnits.length;
+    } else dmg += p * pFail(fd) * fv;
+  }
+  return dmg;
+}
+function evalAttack(units, pos, moved, target, raw) {
+  const d = dist(pos, target), tU = knownUnits(target), tT = terr(target.c, target.r);
+  const shooters = units.filter(u => !u.att && (u.t === 'arc' ? d <= arcRange(pos.c, pos.r) : u.t === 'art' ? (!moved && u.used === 0 && d >= 2 && d <= 3) : false));
+  const melee = units.filter(u => !u.att && d === 1 && (u.t === 'inf' || u.t === 'cav'));
+  if (!shooters.length && !melee.length) return null;
+  const dealt = evDamage(shooters, tU, tT, { raw }) + evDamage(melee, tU, tT, { raw, charge: moved, melee: true });
+  const taken = melee.length ? evDamage(tU.filter(u => u.t !== 'art'), units, terr(pos.c, pos.r), { raw, melee: true }) : 0;
+  const tval = tU.reduce((a, u) => a + u.hp * (raw ? 1 : valHP(u.t)), 0);
+  return { dealt, taken, tval, shooters, melee, d };
+}
+function threatAt(side, units, pos) {
+  let th = 0; const ter = terr(pos.c, pos.r);
+  for (const e of G.stacks) {
+    if (e.side === side) continue;
+    const eu = knownUnits(e); const mv = e.seen ? Math.min(...eu.map(u => UNITS[u.t].mv)) : 2; const d = dist(e, pos);
+    let a = [];
+    if (d <= mv + 1) a = a.concat(eu.filter(u => u.t === 'inf' || u.t === 'cav'));
+    if (d <= mv + 2) a = a.concat(eu.filter(u => u.t === 'arc'));
+    if (d >= 2 && d <= 3) a = a.concat(eu.filter(u => u.t === 'art'));
+    if (a.length) th += evDamage(a, units, ter, { charge: true });
+  }
+  return th;
+}
+
+/* ================= AI ================= */
+function posScore(s, pos, idle) {
+  const side = s.side, en = enemyOf(side), eF = fortOf(en), mF = fortOf(side), agg = planOf(side).agg;
+  const units = s.units, ranged = units.every(u => u.t === 'arc' || u.t === 'art'), hasArt = units.some(u => u.t === 'art');
+  let sc = 0;
+  if (pos.c === eF.c && pos.r === eF.r) sc += 1000;
+  sc -= dist(pos, eF) * 0.3 * agg * (ranged ? 0.5 : 1);
+  const enemies = G.stacks.filter(x => x.side === en);
+  if (enemies.length) {
+    const dmin = Math.min(...enemies.map(e => dist(e, pos)));
+    if (hasArt || ranged) sc -= Math.abs(dmin - 2.5) * 0.35; else sc -= dmin * 0.12 * agg;
+  }
+  const t = terr(pos.c, pos.r);
+  sc += TER[t].def * 0.35 * Math.min(1.5, units.length / 4); if (t === 'village') sc += 0.3;
+  sc -= threatAt(side, units, pos) * 0.55 / agg;
+  const danger = enemies.some(e => dist(e, mF) <= (e.seen ? mpOf(e.units.map(u => ({ ...u, used: 0 }))) : 3) + 1);
+  if (danger) {
+    const holder = G.stacks.find(x => x.side === side && x !== s && x.c === mF.c && x.r === mF.r);
+    if (!holder) { if (pos.c === mF.c && pos.r === mF.r) sc += 15; else sc -= dist(pos, mF) * 0.25; }
+  }
+  if (idle && !enemyAdj(side, pos.c, pos.r)) {
+    const amt = (t === 'village' || t === 'fort') ? 2 : 1; let h = 0;
+    for (const u of units) h += Math.min(amt, UNITS[u.t].hp - u.hp) * valHP(u.t);
+    sc += h * 0.6;
+  }
+  return sc;
+}
+function aiChoose(s) {
+  const opts = [{ c: s.c, r: s.r, stay: true }];
+  for (const n of reachable(s, s.units).values()) if (n.canEnd && !n.merge) opts.push({ c: n.c, r: n.r, stay: false, node: n });
+  const base = posScore(s, s, fresh(s.units));
+  let best = null;
+  for (const o of opts) {
+    let bestAtk = null;
+    for (const e of G.stacks) {
+      if (e.side === s.side || dist(o, e) > 3) continue;
+      const ev = evalAttack(s.units, o, !o.stay, e); if (!ev) continue;
+      let v = ev.dealt - ev.taken * 0.85; if (ev.dealt >= ev.tval * 0.75) v += ev.tval * 0.5;
+      const mF = fortOf(s.side); if (dist(e, mF) <= 1) v += 3;
+      if (!bestAtk || v > bestAtk.v) bestAtk = { e, v };
+    }
+    let total = posScore(s, o, o.stay && fresh(s.units)), atk = null;
+    if (bestAtk && bestAtk.v > 0.15) { const t2 = posScore(s, o, false) + bestAtk.v; if (t2 > total) { total = t2; atk = bestAtk.e; } }
+    if (!best || total > best.total) best = { o, atk, total };
+  }
+  best.gain = best.total - base;
+  return best;
+}
+async function aiTurn(side) {
+  G.busy = true; render();
+  const mine = () => G.stacks.filter(s => s.side === side), hp = st => st.reduce((a, s) => a + s.units.reduce((b, u) => b + u.hp, 0), 0);
+  const myHP = hp(mine()), enHP = hp(G.stacks.filter(s => s.side !== side));
+  if (myHP <= 3 && enHP >= myHP * 3 + 3) { G.busy = false; gameOver(enemyOf(side), 'surrender'); return; }
+  const done = new Set();
+  for (let guard = 0; guard < 40; guard++) {
+    updateVisibility();
+    let pick = null;
+    for (const s of mine()) { if (done.has(s.id)) continue; const ch = aiChoose(s); if (!pick || ch.gain > pick.ch.gain) pick = { s, ch }; }
+    if (!pick) break;
+    done.add(pick.s.id);
+    const { s, ch } = pick;
+    if (ch.o.stay && !ch.atk) continue;
+    G.flash = s; render(); await sleep(260);
+    if (!ch.o.stay) { moveUnits(s, s.units, ch.o.node); updateVisibility(); render(); await sleep(430); }
+    if (ch.atk && G.stacks.includes(ch.atk)) {
+      updateVisibility();
+      const ev = evalAttack(s.units, s, false, ch.atk);
+      if (ev && ev.dealt - ev.taken * 0.85 > -0.3) {
+        const rec = resolveCombat(s, ch.atk); updateVisibility(); render();
+        await showCombat(rec, true);
+        if (checkElim()) { G.busy = false; G.flash = null; return; }
+      }
+    }
+    G.flash = null;
+  }
+  G.flash = null; G.busy = false;
+}
+
+/* ================= turn flow ================= */
+function startTurn(side) { for (const s of G.stacks) if (s.side === side) for (const u of s.units) { u.used = 0; u.att = false; } }
+function heal(side) {
+  for (const s of G.stacks) if (s.side === side) {
+    if (enemyAdj(side, s.c, s.r)) continue;
+    const t = terr(s.c, s.r), amt = (t === 'village' || t === 'fort') ? 2 : 1;
+    for (const u of s.units) if (u.used === 0 && !u.att) u.hp = Math.min(UNITS[u.t].hp, u.hp + amt);
+  }
+}
+function finishTurn(side) {
+  heal(side);
+  const ef = fortOf(enemyOf(side)), s = stackAt(ef.c, ef.r);
+  if (s && s.side === side) { gameOver(side, 'fort'); return true; }
+  return false;
+}
+function checkElim() {
+  for (const side of ['P', 'A']) if (!G.stacks.some(s => s.side === side)) { gameOver(enemyOf(side), 'wiped'); return true; }
+  return false;
+}
+async function endTurn() {
+  if (G.phase !== 'battle' || G.side !== 'P' || G.busy) return;
+  clearSel();
+  if (finishTurn('P')) return;
+  G.side = 'A'; startTurn('A'); render();
+  await sleep(250);
+  await aiTurn('A');
+  if (G.phase !== 'battle') return;
+  if (finishTurn('A')) return;
+  G.turn++; G.side = 'P'; startTurn('P'); updateVisibility(); render();
+}
+function gameOver(winner, why) {
+  G.phase = 'over'; G.winner = winner; G.busy = false; clearSel();
+  const you = winner === 'P';
+  const reason = {
+    fort: you ? `Your troops hold Red's fort. Victory on turn ${G.turn}.` : `Red has taken your fort on turn ${G.turn}.`,
+    wiped: you ? `Red's army has been destroyed on turn ${G.turn}.` : `Your army has been destroyed on turn ${G.turn}.`,
+    surrender: you ? `Red's last troops lay down their arms on turn ${G.turn}.` : `Your army is beaten and surrenders on turn ${G.turn}.`,
+  }[why];
+  G.overText = reason;
+  pushLog(reason);
+  render();
+  if (G.fast) return;
+  $('#overTitle').textContent = you ? 'Victory' : 'Defeat';
+  $('#overTitle').style.color = you ? C.blue : C.red;
+  $('#overText').textContent = reason;
+  $('#overPlan').textContent = `Red's battle plan was the ${PLANS[G.aiPlan].name.toLowerCase()}.`;
+  setTimeout(() => { $('#overOv').hidden = false; }, 500);
+}
+
+/* ================= setup ================= */
+function newGame(seed) {
+  G.seed = seed ?? Math.floor(Math.random() * 1e9);
+  G.map = genMap(G.seed); G.stacks = []; G.nid = 1; G.turn = 1; G.side = 'P'; G.log = []; G.winner = null;
+  clearSel();
+  const keys = Object.keys(PLANS); G.aiPlan = keys[Math.floor(Math.random() * keys.length)];
+  aiDeploy('A', PLANS[G.aiPlan]);
+  G.phase = 'buy'; G.buy = { ...PRESET };
+  for (const el of tokEls.values()) el.remove(); tokEls.clear();
+  buildTerrain(); updateVisibility(); render(); fitView();
+  if (!G.fast) { renderBuy(); $('#buyOv').hidden = false; }
+}
+function aiDeploy(side, plan) {
+  for (const [c0, r0, comp] of plan.stacks) {
+    let c = Math.max(0, Math.min(COLS - 1, c0 + (r0 === 0 ? 0 : Math.floor(Math.random() * 3) - 1)));
+    let r = side === 'A' ? r0 : ROWS - 1 - r0;
+    while (stackAt(c, r)) c = (c + 1) % COLS;
+    const units = []; for (const t of TYPES) for (let i = 0; i < (comp[t] || 0); i++) units.push(mkUnit(t));
+    G.stacks.push({ id: G.nid++, side, c, r, units, exposed: false });
+  }
+}
+const inDeploy = (c, r) => r >= ROWS - 2 && terr(c, r) !== 'river';
+function startDeploy() {
+  G.phase = 'deploy'; G.pool = { ...G.buy }; G.poolSel = TYPES.find(t => G.pool[t] > 0) || null;
+  $('#buyOv').hidden = true; render();
+}
+function placeUnit(c, r) {
+  const t = G.poolSel; if (!t || !G.pool[t]) return;
+  let s = stackAt(c, r);
+  if (s && s.side !== 'P') return;
+  if (s && s.units.length >= MAXSTACK) { pushLog('A stack can hold at most 10 units.'); return; }
+  if (!s) { s = { id: G.nid++, side: 'P', c, r, units: [], exposed: false }; G.stacks.push(s); }
+  s.units.push(mkUnit(t)); s.units.sort((a, b) => UNITS[a.t].order - UNITS[b.t].order);
+  G.pool[t]--; if (!G.pool[t]) G.poolSel = TYPES.find(x => G.pool[x] > 0) || null;
+}
+function takeBack(s) {
+  const u = s.units.pop(); G.pool[u.t]++; G.poolSel = u.t;
+  if (!s.units.length) G.stacks.splice(G.stacks.indexOf(s), 1);
+}
+function clearDeploy() { for (const s of G.stacks.filter(s => s.side === 'P')) G.stacks.splice(G.stacks.indexOf(s), 1); G.pool = { ...G.buy }; G.poolSel = TYPES.find(t => G.pool[t] > 0) || null; }
+function autoPlace() {
+  clearDeploy();
+  const slots = [[2, 13], [5, 13], [8, 13]];
+  const put = (t, c, r) => {
+    let s = stackAt(c, r);
+    if (s && s.units.length >= MAXSTACK) { const alt = []; for (let rr = ROWS - 2; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) if (inDeploy(cc, rr) && (!stackAt(cc, rr) || stackAt(cc, rr).units.length < MAXSTACK)) alt.push([cc, rr]); alt.sort((a, b) => dist({ c: a[0], r: a[1] }, { c, r }) - dist({ c: b[0], r: b[1] }, { c, r })); [c, r] = alt[0]; }
+    G.poolSel = t; placeUnit(c, r);
+  };
+  let i = 0; while (G.pool.inf) put('inf', ...slots[i++ % 3]);
+  i = 1; while (G.pool.arc) put('arc', ...slots[i++ % 3]);
+  i = 1; while (G.pool.art) put('art', ...slots[(i++) % 3]);
+  i = 0; while (G.pool.cav) put('cav', ...(i++ % 2 ? [9, 14] : [1, 14]));
+  G.poolSel = null;
+}
+function startBattle() {
+  G.phase = 'battle'; G.side = 'P'; G.turn = 1; startTurn('P'); clearSel();
+  pushLog('The battle begins. Red waits beyond the river.');
+  updateVisibility(); render();
+}
+
+/* ================= player interaction ================= */
+function clearSel() { G.sel = null; G.reach = null; G.split = null; G.target = null; G.info = null; }
+function selUnits() { return G.split ? G.sel.units.filter((u, i) => G.split.has(i)) : G.sel.units; }
+function select(s) { clearSel(); G.sel = s; computeReach(); }
+function computeReach() { G.reach = G.sel ? reachable(G.sel, selUnits()) : null; if (G.split && !G.split.size) G.reach = new Map(); }
+function handleHex(c, r) {
+  if (G.busy) return;
+  const s = stackAt(c, r);
+  if (G.phase === 'deploy') {
+    if (inDeploy(c, r)) {
+      if (G.poolSel && G.pool[G.poolSel]) placeUnit(c, r);
+      else if (s && s.side === 'P') takeBack(s);
+      G.info = null;
+    } else G.info = s ? { stack: s } : { c, r };
+    render(); return;
+  }
+  if (G.phase !== 'battle' || G.side !== 'P') { G.info = s ? { stack: s } : { c, r }; render(); return; }
+  if (G.sel) {
+    if (s && s.side !== 'P') {
+      const opt = G.split ? null : targetsFor(G.sel).find(o => o.t === s);
+      if (opt) { if (G.target === s) playerAttack(); else { G.target = s; render(); } return; }
+    }
+    const node = G.reach && G.reach.get(key(c, r));
+    if (node && node.canEnd) { playerMove(node); return; }
+    if (s === G.sel) { clearSel(); render(); return; }
+  }
+  if (s && s.side === 'P') { select(s); render(); return; }
+  clearSel(); G.info = s ? { stack: s } : { c, r }; render();
+}
+function playerMove(node) {
+  const units = selUnits();
+  const moved = moveUnits(G.sel, units, node);
+  updateVisibility();
+  select(moved); render();
+}
+async function playerAttack() {
+  const att = G.sel, def = G.target;
+  G.busy = true;
+  const rec = resolveCombat(att, def);
+  G.target = null; G.reach = null;
+  updateVisibility(); render();
+  await showCombat(rec, false);
+  G.busy = false;
+  if (checkElim()) return;
+  if (G.stacks.includes(att)) select(att); else clearSel();
+  render();
+}
+
+/* ================= rendering: board ================= */
+const terrainG = $('#terrainG'), overlayG = $('#overlayG'), tokensG = $('#tokensG'), topG = $('#topG');
+const tokEls = new Map();
+function hsl(h, s, l) { return `hsl(${h} ${s}% ${l}%)`; }
+function buildTerrain() {
+  const rnd = mulberry32(G.seed ^ 0x9e3779b9);
+  const base = { plain: [64, 34, 66], forest: [88, 26, 52], hill: [38, 40, 63], river: [204, 36, 58], ford: [196, 34, 70], village: [56, 30, 68], fort: [44, 34, 70] };
+  let h = `<rect x="4" y="4" width="${BW - 8}" height="${BH - 8}" rx="14" fill="#e7d6ab" stroke="#8a6d3f" stroke-width="3"/>`;
+  const deco = [];
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const t = terr(c, r), [hh, ss, ll] = base[t], j = (rnd() - 0.5) * 6;
+    h += `<polygon points="${hexPts(c, r)}" fill="${hsl(hh, ss, ll + j)}" stroke="#6f5a36" stroke-opacity=".5" stroke-width="1"/>`;
+    deco.push(decor(t, c, r, rnd));
+  }
+  // compass + labels
+  h += deco.join('');
+  terrainG.innerHTML = h;
+}
+function decor(t, c, r, rnd) {
+  const { x, y } = hexXY(c, r); let h = '';
+  if (t === 'forest') {
+    const trees = []; for (let i = 0; i < 5; i++) trees.push([x + (rnd() - .5) * 30, y + (rnd() - .5) * 26, 5.5 + rnd() * 2.5]);
+    trees.sort((a, b) => a[1] - b[1]);
+    for (const [tx, ty, tr] of trees) h += `<circle cx="${tx.toFixed(1)}" cy="${(ty + 2).toFixed(1)}" r="${tr.toFixed(1)}" fill="#3c5627"/><circle cx="${(tx - 1.4).toFixed(1)}" cy="${ty.toFixed(1)}" r="${(tr * .72).toFixed(1)}" fill="#5f8040"/>`;
+  } else if (t === 'hill') {
+    h += `<path d="M${x - 19},${y + 10} Q${x - 7},${y - 15} ${x + 6},${y + 10}Z" fill="#b48a52" stroke="#7a5a32" stroke-width="1.3"/>`;
+    h += `<path d="M${x - 3},${y + 11} Q${x + 8},${y - 6} ${x + 19},${y + 11}Z" fill="#c29a62" stroke="#7a5a32" stroke-width="1.3"/>`;
+    h += `<path d="M${x - 11},${y + 4} l3,-3 M${x - 7},${y + 6} l3,-3 M${x + 8},${y + 7} l3,-3" stroke="#7a5a32" stroke-width="1"/>`;
+  } else if (t === 'river' || t === 'ford') {
+    for (const dy of [-7, 4]) h += `<path d="M${x - 18},${y + dy} q4.5,-4 9,0 t9,0 t9,0 t9,0" fill="none" stroke="#eef5f8" stroke-opacity="${t === 'ford' ? .45 : .6}" stroke-width="1.4"/>`;
+    if (t === 'ford') for (let i = 0; i < 6; i++) h += `<ellipse cx="${(x + (i - 2.5) * 6.5).toFixed(1)}" cy="${(y + (i % 2 ? 9 : -1)).toFixed(1)}" rx="3.3" ry="2.4" fill="#a99f8a" stroke="#6e6656" stroke-width=".8"/>`;
+  } else if (t === 'village') {
+    for (const [hx, hy, k] of [[-10, -4, 1], [7, -7, .9], [0, 8, 1.05]]) {
+      const X = x + hx, Y = y + hy, w = 11 * k, hh = 7 * k;
+      h += `<rect x="${X - w / 2}" y="${Y}" width="${w}" height="${hh}" fill="#efe1bd" stroke="#6b4f2c" stroke-width=".9"/>`;
+      h += `<path d="M${X - w / 2 - 1.5},${Y} L${X},${Y - 6 * k} L${X + w / 2 + 1.5},${Y}Z" fill="#a8492f" stroke="#6b2d1b" stroke-width=".9"/>`;
+    }
+  } else if (t === 'fort') {
+    const col = r === 0 ? C.red : C.blue;
+    h += `<polygon points="${hexPts(c, r, .72)}" fill="none" stroke="#6b4a26" stroke-width="4" stroke-dasharray="3 2"/>`;
+    h += `<path d="M${x - 3},${y + 13} V${y - 20}" stroke="#3b2817" stroke-width="2"/><path d="M${x - 2},${y - 20} l17,4 l-17,5z" fill="${col}" stroke="#2a1f14" stroke-width=".8"/>`;
+  }
+  return h;
+}
+function renderOverlay() {
+  let h = '';
+  if (G.phase === 'deploy') for (let r = ROWS - 2; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (inDeploy(c, r)) h += `<polygon class="dz" points="${hexPts(c, r, .94)}"/>`;
+  if (G.info && !G.info.stack) h += `<polygon class="infohex" points="${hexPts(G.info.c, G.info.r, .9)}"/>`;
+  if (G.info && G.info.stack) h += `<polygon class="infohex" points="${hexPts(G.info.stack.c, G.info.stack.r, .9)}"/>`;
+  if (G.sel) {
+    if (G.reach) for (const n of G.reach.values()) if (n.canEnd) h += `<polygon class="reach${n.merge ? ' merge' : ''}" points="${hexPts(n.c, n.r, .86)}"/>`;
+    h += `<polygon class="selring" points="${hexPts(G.sel.c, G.sel.r, .93)}"/>`;
+    if (!G.split) for (const o of targetsFor(G.sel)) h += `<polygon class="tgt${o.t === G.target ? ' on' : ''}" points="${hexPts(o.t.c, o.t.r, .9)}"/>`;
+  }
+  if (G.flash && G.stacks.includes(G.flash)) h += `<polygon class="flash" points="${hexPts(G.flash.c, G.flash.r, .95)}"/>`;
+  overlayG.innerHTML = h;
+}
+function canAct(s) { return mpOf(s.units) > 0 || targetsFor(s).length > 0; }
+function tokenSVG(s) {
+  const col = s.side === 'P' ? C.blue : C.red, dark = s.side === 'P' ? C.blueD : C.redD;
+  const show = s.side === 'P' || s.seen || G.phase === 'over';
+  const R = 22;
+  let h = `<ellipse cx="2" cy="5" rx="${R}" ry="${R * .88}" fill="rgba(40,25,10,.35)"/>`;
+  h += `<circle r="${R}" fill="url(#wood)" stroke="${col}" stroke-width="4"/><circle r="${R - 5.5}" fill="none" stroke="rgba(90,60,30,.3)" stroke-width="1"/>`;
+  if (show) {
+    const types = TYPES.filter(t => s.units.some(u => u.t === t)), n = types.length;
+    const lay = n === 1 ? [[0, -1, 1.35]] : n === 2 ? [[-7.5, -1, .9], [7.5, -1, .9]] : [[-7, -7, .74], [7, -7, .74], [-7, 6, .74], [7, 6, .74]];
+    types.forEach((t, i) => { const [x, y, k] = lay[i]; const w = 17 * k; h += `<use href="#i-${t}" x="${(x - w / 2).toFixed(1)}" y="${(y - w / 2).toFixed(1)}" width="${w.toFixed(1)}" height="${w.toFixed(1)}" style="color:${dark}"/>`; });
+    let hp = 0, mx = 0; for (const u of s.units) { hp += u.hp; mx += UNITS[u.t].hp; }
+    const f = hp / mx;
+    h += `<rect x="-15" y="${R - 2}" width="30" height="5.5" rx="2.5" fill="#2a1f14"/><rect x="-14.2" y="${R - 1.2}" width="${(28.4 * f).toFixed(1)}" height="3.9" rx="2" fill="${f > .6 ? '#86b356' : f > .3 ? '#e0aa3e' : '#d0573f'}"/>`;
+  } else {
+    h += `<text y="8.5" text-anchor="middle" class="qmark" fill="${dark}">?</text>`;
+  }
+  h += `<circle cx="15.5" cy="-15.5" r="8.5" fill="${col}" stroke="#f6e9c8" stroke-width="1.5"/><text x="15.5" y="-11.8" text-anchor="middle" class="badge">${show ? s.units.length : sizeCat(s.units.length)}</text>`;
+  return h;
+}
+function renderTokens() {
+  const live = new Set();
+  for (const s of G.stacks) {
+    live.add(s.id);
+    let el = tokEls.get(s.id); const p = hexXY(s.c, s.r);
+    if (!el) {
+      el = document.createElementNS(NS, 'g'); tokensG.appendChild(el); tokEls.set(s.id, el);
+      const f = s.from ? hexXY(s.from.c, s.from.r) : p;
+      el.style.transform = `translate(${f.x}px,${f.y}px)`; el.getBoundingClientRect();
+    }
+    el.style.transform = `translate(${p.x}px,${p.y}px)`; s.from = null;
+    const spent = G.phase === 'battle' && s.side === G.side && s.side === 'P' && !canAct(s);
+    el.setAttribute('class', 'tok' + (spent ? ' spent' : ''));
+    el.innerHTML = tokenSVG(s);
+  }
+  for (const [id, el] of tokEls) if (!live.has(id)) { el.remove(); tokEls.delete(id); }
+}
+
+/* ================= rendering: UI ================= */
+const icon = (t, color) => `<svg viewBox="0 0 20 20" aria-hidden="true"><use href="#i-${t}" x="0" y="0" width="20" height="20" style="color:${color || C.blueD}"/></svg>`;
+const pips = u => `<span class="pips">${'<b>●</b>'.repeat(u.hp)}${'<i>●</i>'.repeat(UNITS[u.t].hp - u.hp)}</span>`;
+function unitChips(s, opts = {}) {
+  const color = s.side === 'P' ? C.blueD : C.redD;
+  return `<div class="units">${s.units.map((u, i) => {
+    const tag = opts.split ? 'button' : 'div';
+    const spent = s.side === 'P' && G.phase === 'battle' && (u.att || UNITS[u.t].mv - u.used <= 0);
+    const on = opts.split && G.split.has(i);
+    return `<${tag} class="uchip${on ? ' on' : ''}${spent ? ' spent' : ''}" ${opts.split ? `data-act="chip" data-i="${i}" aria-pressed="${on}"` : ''}>${icon(u.t, color)}<span>${UNITS[u.t].name}</span>${pips(u)}</${tag}>`;
+  }).join('')}</div>`;
+}
+function terrLine(c, r) { const t = terr(c, r), d = TER[t].def; return `${TER[t].name}${d ? ` (${d > 0 ? '+' : ''}${d} def)` : ''}`; }
+function logHTML() { return G.log.length ? `<div class="log">${G.log.slice(0, 3).map(l => `<div>${l}</div>`).join('')}</div>` : ''; }
+function renderPanel() {
+  const P = $('#panelIn'); let h = '';
+  if (G.phase === 'buy') h = `<div class="hint">Choose your army to begin.</div>`;
+  else if (G.phase === 'deploy') {
+    const left = TYPES.reduce((a, t) => a + G.pool[t], 0);
+    h += `<div class="p-head"><h3>Deploy your army</h3><span class="muted small">${left ? left + ' units left to place' : 'All units placed'}</span></div>`;
+    h += `<div class="tray">${TYPES.filter(t => G.buy[t] > 0).map(t => `<button data-act="pool" data-t="${t}" class="${G.poolSel === t ? 'on' : ''}" ${G.pool[t] ? '' : 'disabled'}>${icon(t)}${UNITS[t].plural}<span class="n">${G.pool[t]}</span></button>`).join('')}</div>`;
+    h += `<div class="hint">Pick a unit type, then tap a shaded hex in your two back rows to add it there. Tap the same hex again to stack more units together. With every unit placed, tapping a stack takes its last unit back.</div>`;
+    h += `<div class="acts"><button class="btn plain" data-act="auto">Auto-place</button><button class="btn plain" data-act="clear">Clear</button><button class="btn primary" data-act="start" ${left ? 'disabled' : ''}>Start battle</button></div>`;
+    if (G.info) h += infoHTML();
+  } else if (G.phase === 'battle' && G.side === 'A') {
+    h += `<div class="p-head"><span class="sw A"></span><h3>Red is moving…</h3></div>${logHTML()}`;
+  } else if (G.phase === 'battle' && G.sel) {
+    const s = G.sel, mp = mpOf(selUnits());
+    h += `<div class="p-head"><span class="sw P"></span><h3>Your stack</h3><span class="muted small">${s.units.length}/10 units</span></div>`;
+    h += `<div class="tags"><span class="tag">Moves left ${Math.max(0, mp)}</span><span class="tag">${terrLine(s.c, s.r)}</span>${enemyAdj('P', s.c, s.r) ? '<span class="tag" style="background:var(--red-l)">Engaged</span>' : ''}</div>`;
+    if (G.target && !G.split) h += attackHTML(s, G.target);
+    h += unitChips(s, { split: !!G.split });
+    if (G.split) {
+      h += `<div class="hint">Tap units to choose who splits off (${G.split.size} chosen), then tap a pale hex to send them there.</div>`;
+      h += `<div class="acts"><button class="btn plain" data-act="unsplit">Cancel split</button></div>`;
+    } else if (!G.target) {
+      const tg = targetsFor(s);
+      const parts = [];
+      if (G.reach && [...G.reach.values()].some(n => n.canEnd)) parts.push('Tap a pale hex to move');
+      if (tg.length) parts.push(`tap a red ring to attack (${tg.length} target${tg.length > 1 ? 's' : ''})`);
+      h += `<div class="hint">${parts.length ? parts.join(', ') + '.' : 'This stack has finished for this turn.'}</div>`;
+      h += `<div class="acts">${s.units.length > 1 && mp > 0 ? '<button class="btn plain" data-act="split">Split</button>' : ''}<button class="btn plain" data-act="desel">Done</button></div>`;
+    }
+    h += logHTML();
+  } else if (G.phase === 'battle' || G.phase === 'over') {
+    if (G.info) h += infoHTML();
+    else if (G.phase === 'over') h += `<div class="p-head"><span class="sw ${G.winner}"></span><h3>${G.winner === 'P' ? 'Victory' : 'Defeat'}</h3></div><div class="hint">${G.overText}</div><div class="acts"><button class="btn primary" data-act="new">New battle</button></div>`;
+    else {
+      const ready = G.stacks.filter(s => s.side === 'P' && canAct(s)).length;
+      h += `<div class="p-head"><span class="sw P"></span><h3>Your move</h3><span class="muted small">Turn ${G.turn}</span></div>`;
+      h += `<div class="hint">${ready ? `${ready} stack${ready > 1 ? 's' : ''} can still act. Tap one to give orders.` : 'Every stack has acted. Press End turn.'} Take Red's fort (top of the map) or destroy its army.</div>`;
+    }
+    h += logHTML();
+  }
+  P.innerHTML = h;
+  if (G.target) $('#panel').scrollTop = 0;
+}
+function infoHTML() {
+  const i = G.info;
+  if (i.stack) {
+    const s = i.stack, show = s.side === 'P' || s.seen || G.phase === 'over';
+    let h = `<div class="p-head"><span class="sw ${s.side}"></span><h3>${s.side === 'P' ? 'Your stack' : 'Red stack'}</h3><span class="muted small">${terrLine(s.c, s.r)}</span></div>`;
+    if (show) h += unitChips(s);
+    else h += `<div class="hint">Contents hidden. Size <b>${sizeCat(s.units.length)}</b> (${{ S: '1–3', M: '4–6', L: '7–10' }[sizeCat(s.units.length)]} units). Move next to it or bring cavalry within 2 hexes to see inside.</div>`;
+    return h;
+  }
+  const t = terr(i.c, i.r);
+  return `<div class="p-head"><h3>${TER[t].name}</h3><span class="muted small">Move cost ${TER[t].cost === Infinity ? '—' : TER[t].cost}</span></div><div class="hint">${TER_NOTE[t]}</div>`;
+}
+function attackHTML(s, t) {
+  const ev = evalAttack(s.units, s, false, t, true);
+  if (!ev) return '';
+  const fmt = n => n.toFixed(1);
+  const list = us => { const o = {}; for (const u of us) o[u.t] = (o[u.t] || 0) + 1; return TYPES.filter(k => o[k]).map(k => `${o[k]} ${o[k] > 1 ? UNITS[k].plural : UNITS[k].name}`).join(', ') || '—'; };
+  return `<div class="atkcard">
+    <div class="p-head"><span class="sw A"></span><b>Attack the Red stack</b><span class="muted small">${terrLine(t.c, t.r)} · ${ev.d} hex${ev.d > 1 ? 'es' : ''} away</span></div>
+    <div class="row"><span>Shooting: <b>${list(ev.shooters)}</b></span><span>Melee: <b>${list(ev.melee)}</b></span></div>
+    <div class="row"><span>Expected dealt <span class="big">≈ ${fmt(ev.dealt)} HP</span></span><span>taken <span class="big">≈ ${fmt(ev.taken)} HP</span></span></div>
+    ${t.seen ? '' : '<div class="hint">Red\'s units are hidden, so this estimate assumes all infantry.</div>'}
+    <div class="acts"><button class="btn danger" data-act="attack">Attack</button><button class="btn plain" data-act="cancelAtk">Cancel</button><span class="hint" style="align-self:center">or tap the target again</span></div>
+  </div>`;
+}
+function renderBar() {
+  const chip = $('#turnChip'); let txt, col;
+  if (G.phase === 'buy') { txt = 'Muster'; col = C.blue; }
+  else if (G.phase === 'deploy') { txt = 'Deployment'; col = C.blue; }
+  else if (G.phase === 'over') { txt = G.winner === 'P' ? 'Victory' : 'Defeat'; col = G.winner === 'P' ? C.blue : C.red; }
+  else { txt = `Turn ${G.turn} · ${G.side === 'P' ? 'You' : 'Red'}`; col = G.side === 'P' ? C.blue : C.red; }
+  chip.innerHTML = `<span class="dot" style="background:${col}"></span>${txt}`;
+  const e = $('#endBtn');
+  e.hidden = G.phase !== 'battle';
+  e.disabled = G.side !== 'P' || G.busy;
+}
+function render() {
+  if (G.phase !== 'buy') updateVisibility();
+  renderOverlay(); renderTokens(); renderPanel(); renderBar();
+}
+
+/* ================= buy screen ================= */
+const spent = () => TYPES.reduce((a, t) => a + G.buy[t] * UNITS[t].cost, 0);
+function renderBuy() {
+  const sp = spent();
+  $('#budgetTxt').textContent = `${sp} / ${BUDGET} points`;
+  $('#budgetBar').style.width = (100 * sp / BUDGET) + '%';
+  $('#buyCards').innerHTML = TYPES.map(t => {
+    const U = UNITS[t];
+    return `<div class="ucard">
+      <svg class="ic" viewBox="-26 -26 52 52" aria-hidden="true"><circle r="23" fill="url(#wood)" stroke="${C.blue}" stroke-width="3.5"/><use href="#i-${t}" x="-14" y="-14" width="28" height="28" style="color:${C.blueD}"/></svg>
+      <div class="nm"><b>${U.plural}</b><span class="cost">${U.cost} pt${U.cost > 1 ? 's' : ''}</span></div>
+      <div class="stats"><span>HP <b>${U.hp}</b></span><span>Atk <b>${U.atk}</b></span><span>Def <b>${U.def}</b></span><span>Move <b>${U.mv}</b></span></div>
+      <div class="spec">${U.spec}</div>
+      <div class="step"><button data-buy="${t}" data-d="-1" aria-label="Remove one ${U.name}" ${G.buy[t] ? '' : 'disabled'}>−</button><output>${G.buy[t]}</output><button data-buy="${t}" data-d="1" aria-label="Add one ${U.name}" ${sp + U.cost <= BUDGET ? '' : 'disabled'}>+</button></div>
+    </div>`;
+  }).join('');
+  $('#buyGo').disabled = sp === 0;
+}
+$('#buyCards').addEventListener('click', e => {
+  const b = e.target.closest('[data-buy]'); if (!b) return;
+  const t = b.dataset.buy, d = +b.dataset.d;
+  if (d > 0 && spent() + UNITS[t].cost > BUDGET) return;
+  G.buy[t] = Math.max(0, G.buy[t] + d); renderBuy();
+});
+$('#buyClear').onclick = () => { for (const t of TYPES) G.buy[t] = 0; renderBuy(); };
+$('#buyPreset').onclick = () => { G.buy = { ...PRESET }; renderBuy(); };
+$('#buyGo').onclick = () => { if (spent() > 0) startDeploy(); };
+
+/* ================= panel actions ================= */
+$('#panelIn').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b || G.busy) return;
+  const a = b.dataset.act;
+  if (a === 'pool') { G.poolSel = b.dataset.t; }
+  else if (a === 'auto') autoPlace();
+  else if (a === 'clear') clearDeploy();
+  else if (a === 'start') { if (!TYPES.some(t => G.pool[t])) startBattle(); }
+  else if (a === 'split') { G.split = new Set(); G.target = null; computeReach(); }
+  else if (a === 'unsplit') { G.split = null; computeReach(); }
+  else if (a === 'chip') { const i = +b.dataset.i; if (G.split.has(i)) G.split.delete(i); else G.split.add(i); if (G.split.size === G.sel.units.length) G.split.delete(i); computeReach(); }
+  else if (a === 'desel') clearSel();
+  else if (a === 'attack') { playerAttack(); return; }
+  else if (a === 'cancelAtk') G.target = null;
+  else if (a === 'new') { $('#overOv').hidden = true; newGame(); return; }
+  render();
+});
+$('#endBtn').onclick = () => endTurn();
+$('#helpBtn').onclick = () => { $('#helpOv').hidden = false; };
+$('#helpClose').onclick = () => { $('#helpOv').hidden = true; };
+$('#helpNew').onclick = () => { if (G.busy) return; $('#helpOv').hidden = true; $('#overOv').hidden = true; newGame(); };
+$('#overNew').onclick = () => { $('#overOv').hidden = true; newGame(); };
+$('#overView').onclick = () => { $('#overOv').hidden = true; };
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { for (const id of ['#helpOv', '#overOv']) $(id).hidden = true; if (G.phase === 'battle' && !G.busy) { clearSel(); render(); } }
+});
+
+/* ================= combat popup ================= */
+const FACES = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+function dieHTML(v, cls, delay) { let h = ''; for (let i = 0; i < 9; i++) h += `<i class="${FACES[v].includes(i) ? 'on' : ''}"></i>`; return `<div class="die ${cls}" style="animation-delay:${delay}ms">${h}</div>`; }
+function showCombat(rec, auto) {
+  if (G.fast) return Promise.resolve();
+  const ov = $('#combat');
+  $('#cbTitle').textContent = `${sideName(rec.att)} attacks ${sideName(rec.def)}`;
+  let h = `<div class="hint">Defender on ${TER[rec.ter].name.toLowerCase()} · ${rec.d} hex${rec.d > 1 ? 'es' : ''} away</div>`;
+  let delay = 0;
+  for (const ph of rec.phases) {
+    const col = ph.by === 'P' ? C.blueD : C.redD, other = enemyOf(ph.by);
+    const hits = ph.rolls.filter(r => r.hit).length;
+    h += `<div class="ph"><div class="phl"><span class="sw ${ph.by}"></span>${sideName(ph.by)} · ${ph.label} <span class="muted">${hits} hit${hits === 1 ? '' : 's'}</span></div><div class="dice">`;
+    for (const r of ph.rolls) { h += `<div class="dw">${dieHTML(r.v, r.hit ? 'hit' : 'miss', delay)}${icon(r.t, col)}<span class="small muted">${r.n}+</span></div>`; delay += 60; }
+    h += `</div>`;
+    if (ph.saves.length) {
+      const sv = ph.saves.filter(x => x.saved).length;
+      h += `<div class="phl"><span class="sw ${other}"></span>${sideName(other)} saves <span class="muted">${sv} of ${ph.saves.length} blocked</span></div><div class="dice">`;
+      for (const r of ph.saves) { h += `<div class="dw">${dieHTML(r.v, 'sm ' + (r.saved ? 'saved' : 'wound'), delay)}${icon(r.t, other === 'P' ? C.blueD : C.redD)}</div>`; delay += 60; }
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+  $('#cbBody').innerHTML = h;
+  const lt = s => { const parts = TYPES.filter(t => rec.loss[s][t]).map(t => rec.loss[s][t] + ' ' + (rec.loss[s][t] > 1 ? UNITS[t].plural : UNITS[t].name)); return parts.length ? 'lost ' + parts.join(', ') : 'lost no units'; };
+  let res = `${sideName(rec.att)} took ${rec.dmg[rec.att]} damage and ${lt(rec.att)}. ${sideName(rec.def)} took ${rec.dmg[rec.def]} damage and ${lt(rec.def)}.`;
+  if (rec.wiped) res += ` The ${sideName(rec.wiped)} stack is destroyed${rec.advanced ? ` and ${sideName(rec.att)} advances` : ''}.`;
+  $('#cbResult').textContent = res;
+  ov.hidden = false;
+  return new Promise(resolve => {
+    let done = false, tm = null;
+    const close = () => { if (done) return; done = true; clearTimeout(tm); ov.hidden = true; ov.removeEventListener('click', onClick); resolve(); };
+    const onClick = e => { if (e.target === ov || e.target.id === 'cbClose' || auto) close(); };
+    ov.addEventListener('click', onClick);
+    if (auto) tm = setTimeout(close, 2400 + delay);
+  });
+}
+
+/* ================= pan / zoom ================= */
+const svg = $('#board'), world = $('#world');
+const view = { k: 1, x: 0, y: 0, fit: 1 };
+function applyView() { world.setAttribute('transform', `translate(${view.x.toFixed(1)},${view.y.toFixed(1)}) scale(${view.k.toFixed(4)})`); }
+function fitView() {
+  const r = svg.getBoundingClientRect(); if (!r.width || !r.height) return;
+  const k = Math.min(r.width / BW, r.height / BH) * 0.98;
+  view.k = view.fit = k; view.x = (r.width - BW * k) / 2; view.y = (r.height - BH * k) / 2; applyView();
+}
+function zoomAt(f, cx, cy) {
+  const k = Math.max(view.fit * 0.8, Math.min(view.fit * 4, view.k * f)); const wx = (cx - view.x) / view.k, wy = (cy - view.y) / view.k;
+  view.k = k; view.x = cx - wx * k; view.y = cy - wy * k; applyView();
+}
+const ptrs = new Map(); let gest = null;
+svg.addEventListener('pointerdown', e => {
+  svg.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 1) gest = { type: 'tap', sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y };
+  else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; gest = { type: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), k0: view.k, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, vx: view.x, vy: view.y }; }
+});
+svg.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId) || !gest) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (gest.type === 'tap' && Math.hypot(e.clientX - gest.sx, e.clientY - gest.sy) > 8) gest.type = 'pan';
+  if (gest.type === 'pan') { view.x = gest.vx + e.clientX - gest.sx; view.y = gest.vy + e.clientY - gest.sy; applyView(); }
+  else if (gest.type === 'pinch' && ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()], rect = svg.getBoundingClientRect();
+    const k = Math.max(view.fit * 0.8, Math.min(view.fit * 4, gest.k0 * Math.hypot(a.x - b.x, a.y - b.y) / gest.d0));
+    const wx = (gest.cx - rect.left - gest.vx) / gest.k0, wy = (gest.cy - rect.top - gest.vy) / gest.k0;
+    const cx = (a.x + b.x) / 2 - rect.left, cy = (a.y + b.y) / 2 - rect.top;
+    view.k = k; view.x = cx - wx * k; view.y = cy - wy * k; applyView();
+  }
+});
+function endPtr(e) {
+  if (!ptrs.has(e.pointerId)) return;
+  if (gest && gest.type === 'tap' && ptrs.size === 1 && e.type === 'pointerup') {
+    const rect = svg.getBoundingClientRect();
+    const hx = pixelToHex((e.clientX - rect.left - view.x) / view.k, (e.clientY - rect.top - view.y) / view.k);
+    if (hx) handleHex(hx.c, hx.r);
+  }
+  ptrs.delete(e.pointerId);
+  if (ptrs.size === 1) { const [p] = [...ptrs.values()]; gest = { type: 'pan', sx: p.x, sy: p.y, vx: view.x, vy: view.y }; }
+  else if (!ptrs.size) gest = null;
+}
+svg.addEventListener('pointerup', endPtr); svg.addEventListener('pointercancel', endPtr);
+svg.addEventListener('wheel', e => { e.preventDefault(); const r = svg.getBoundingClientRect(); zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+$('#zIn').onclick = () => { const r = svg.getBoundingClientRect(); zoomAt(1.3, r.width / 2, r.height / 2); };
+$('#zOut').onclick = () => { const r = svg.getBoundingClientRect(); zoomAt(1 / 1.3, r.width / 2, r.height / 2); };
+$('#zFit').onclick = fitView;
+new ResizeObserver(() => fitView()).observe($('#mapwrap'));
+
+/* ================= test hook + boot ================= */
+window.HEX = {
+  G, newGame, autoPlace, startBattle, aiTurn, endTurn,
+  screenOf(c, r) { const p = hexXY(c, r), b = svg.getBoundingClientRect(); return { x: b.left + view.x + p.x * view.k, y: b.top + view.y + p.y * view.k }; },
+  async autoBattle(maxTurns = 80) {
+    while (G.phase === 'battle' && G.turn <= maxTurns) {
+      await aiTurn('P'); if (G.phase !== 'battle') break;
+      await endTurn();
+    }
+    return { winner: G.winner, turn: G.turn, plan: G.aiPlan, phase: G.phase };
+  },
+};
+newGame();
+</script>
+</body>
+</html>
