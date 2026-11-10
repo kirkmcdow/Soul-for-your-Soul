@@ -155,10 +155,13 @@ table.ter td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 
 /* combat */
 #combat .sheet{max-width:520px}
-.ph{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px dashed var(--parch-3)}
+.ph{display:flex;flex-direction:column;gap:5px;padding:7px 0;border-top:1px dashed var(--parch-3)}
+.savesep{align-self:center;font-weight:800;color:var(--ink-soft);display:flex;flex-direction:column;align-items:center;font-size:16px;line-height:1;padding:0 2px}
+.savesep span{font-size:10.5px;font-weight:700;white-space:nowrap}
+#combat .sheet-acts{position:sticky;bottom:-20px;background:var(--parch);padding:10px 0 4px;margin-bottom:-4px}
 .phl{font-weight:800;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .phl .muted{font-weight:500}
-.dice{display:flex;flex-wrap:wrap;gap:6px}
+.dice{display:flex;flex-wrap:wrap;gap:6px 5px;align-items:flex-start}
 .dw{display:flex;flex-direction:column;align-items:center;gap:2px}
 .dw svg{width:14px;height:14px}
 .die{width:34px;height:34px;border-radius:7px;background:#fbf6e8;border:2px solid #b6a275;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);
@@ -176,7 +179,7 @@ table.ter td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 .result{font-weight:800;font-size:15px;line-height:1.4;border-top:2px solid var(--parch-3);padding-top:10px}
 .title-big{font-family:var(--f-display);font-size:46px;line-height:1;text-align:center}
 @media (prefers-reduced-motion:reduce){.die{animation:none}.tok{transition:none}.selring,.tgt.on{animation:none}}
-@media (max-width:420px){.brand{font-size:19px}#turnChip{font-size:11.5px;padding:4px 8px}.btn{padding:8px 11px}.sheet h2{font-size:26px}}
+@media (max-width:420px){.brand{display:none}#turnChip{font-size:11.5px;padding:4px 8px}.btn{padding:8px 11px}.sheet h2{font-size:26px}}
 </style>
 </head>
 <body>
@@ -186,6 +189,7 @@ table.ter td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
     <div id="turnChip"></div>
     <div class="sp"></div>
     <button id="helpBtn" class="btn ghost round" aria-label="Rules and new battle">?</button>
+    <button id="undoBtn" class="btn ghost round" aria-label="Undo last move" title="Undo last move">↶</button>
     <button id="endBtn" class="btn primary">End turn</button>
   </div></header>
   <main id="main">
@@ -253,7 +257,9 @@ table.ter td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
       <section><h4>Your turn</h4><p>Tap a stack, then tap a pale hex to move or a red ring to attack. Each stack may move, then attack once. Attacking ends that stack's turn. Press <b>End turn</b> when you're done.</p></section>
       <section><h4>Stacks</h4><p>A stack holds up to 10 units of any mix and moves at the speed of its slowest unit. Use <b>Split</b> to send some units off on their own. Move onto your own stack to merge.</p></section>
       <section><h4>Zones of control</h4><p>Moving next to an enemy stack stops you. Leaving a hex next to an enemy uses all of your remaining movement.</p></section>
-      <section><h4>Combat</h4><p>Each attacking unit rolls one die and hits on <b>6 − attack</b> or higher (never better than 2+). For every hit, the unit struck rolls a save and blocks the hit on a roll at or below its defense (never better than 4). Archers and artillery fire first. Then infantry and cavalry fight in melee, and the defender strikes back with everything except artillery. Hits land on the front line first: infantry, then cavalry, archers, artillery. If you wipe out a stack in melee, you advance into its hex.</p></section>
+      <section><h4>Combat</h4><p>Each attacking unit rolls one die and hits on <b>6 − attack</b> or higher (never better than 2+). For every hit, the unit struck rolls a save and blocks the hit on a roll at or below its defense (never better than 3). Archers and artillery fire first. Then infantry and cavalry fight up to two rounds of melee, and the defender strikes back each round with everything except artillery. Hits land on the front line first: infantry, then cavalry, archers, artillery. If you wipe out a stack in melee, you advance into its hex.</p></section>
+      <section><h4>Flanking and routs</h4><p>Each of your other stacks next to the defender gives your melee units +1 attack (up to +2). After a melee, a defender that took damage and is outnumbered two to one in remaining HP breaks and falls back a hex. If it has nowhere to go, it surrenders. Surround a stack before you strike.</p></section>
+      <section><h4>Undo</h4><p>The ↶ button takes back your moves this turn, until you attack or a move reveals hidden enemy troops.</p></section>
       <section><h4>Hidden armies</h4><p>You can see how big an enemy stack is (S = 1–3 units, M = 4–6, L = 7–10) but not what's in it. Its units are revealed once you're next to it, have cavalry within 2 hexes, or have fought it. Splitting or merging hides a stack again. Red plays by the same rules.</p></section>
       <section><h4>Rest</h4><p>Units that neither move nor fight during their turn heal 1 HP, or 2 HP in a village or fort. A stack next to an enemy can't rest.</p></section>
       <section><h4>Terrain</h4>
@@ -303,19 +309,20 @@ table.ter td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 <script>
 'use strict';
 /* ================= constants ================= */
+const MELEE_ROUNDS = 2;
 const COLS = 11, ROWS = 15, S = 30, SQ3 = Math.sqrt(3), PAD = 16, MAXSTACK = 10, BUDGET = 30;
 const BW = S * SQ3 * (COLS + 0.5) + PAD * 2, BH = S * 1.5 * (ROWS - 1) + S * 2 + PAD * 2;
 const OX = PAD + S * SQ3 / 2, OY = PAD + S;
 const NS = 'http://www.w3.org/2000/svg';
 const C = { blue: '#2b528f', blueD: '#1b355e', red: '#9e2f28', redD: '#5e1914' };
 const UNITS = {
-  inf: { name: 'Infantry', plural: 'Infantry', hp: 3, atk: 2, def: 2, mv: 2, cost: 1, order: 0,
+  inf: { name: 'Infantry', plural: 'Infantry', hp: 2, atk: 2, def: 1, mv: 2, cost: 1, order: 0,
          spec: 'Shield wall: +1 defense while 2 or more infantry share the stack. Holds the front line and takes hits first.' },
-  cav: { name: 'Cavalry', plural: 'Cavalry', hp: 3, atk: 3, def: 2, mv: 4, cost: 3, order: 1,
+  cav: { name: 'Cavalry', plural: 'Cavalry', hp: 3, atk: 3, def: 1, mv: 4, cost: 3, order: 1,
          spec: 'Charge: +1 attack after moving this turn (not into forest). Spots hidden stacks up to 2 hexes away.' },
-  arc: { name: 'Archer', plural: 'Archers', hp: 2, atk: 2, def: 1, mv: 2, cost: 2, order: 2,
+  arc: { name: 'Archer', plural: 'Archers', hp: 1, atk: 2, def: 0, mv: 2, cost: 2, order: 2,
          spec: 'Volley: shoots 2 hexes (3 from a hill) before melee. Targets can\'t shoot back at range.' },
-  art: { name: 'Artillery', plural: 'Artillery', hp: 2, atk: 4, def: 1, mv: 1, cost: 4, order: 3,
+  art: { name: 'Artillery', plural: 'Artillery', hp: 2, atk: 4, def: 0, mv: 1, cost: 4, order: 3,
          spec: 'Bombard: fires 2–3 hexes and each hit strikes up to 3 random units. Can\'t fire after moving or at adjacent hexes.' },
 };
 const TYPES = ['inf', 'cav', 'arc', 'art'];
@@ -375,7 +382,7 @@ function hexPts(c, r, scale = 1) {
 const G = {
   phase: 'buy', map: null, seed: 1, turn: 1, side: 'P', stacks: [], nid: 1,
   sel: null, reach: null, split: null, target: null, info: null, busy: false, flash: null,
-  buy: { ...PRESET }, pool: null, poolSel: null, aiPlan: 'balanced', log: [], fast: false, winner: null,
+  buy: { ...PRESET }, undo: [], pool: null, poolSel: null, aiPlan: 'balanced', log: [], fast: false, winner: null,
   fortP: { c: 5, r: 14 }, fortA: { c: 5, r: 0 },
 };
 const terr = (c, r) => G.map[r][c];
@@ -468,13 +475,15 @@ function moveUnits(stack, units, node) {
 const roll = () => 1 + Math.floor(Math.random() * 6);
 const needHit = a => Math.max(2, Math.min(6, 6 - a));
 const arcRange = (c, r) => terr(c, r) === 'hill' ? 3 : 2;
-function atkOf(u, defTer, charge) { let a = UNITS[u.t].atk; if (u.t === 'cav' && (charge || u.used > 0) && defTer !== 'forest') a++; return a; }
+function atkOf(u, defTer, charge, flank = 0) { let a = UNITS[u.t].atk + flank; if (u.t === 'cav' && (charge || u.used > 0) && defTer !== 'forest') a++; return a; }
+function flankCount(side, target, exclude) { return Math.min(2, G.stacks.filter(x => x.side === side && x !== exclude && dist(x, target) === 1).length); }
+function retreatHexes(def) { return neighbors(def.c, def.r).filter(n => !stackAt(n.c, n.r) && terr(n.c, n.r) !== 'river'); }
 function defOf(u, units, ter) {
   let d = UNITS[u.t].def, td = TER[ter].def;
   if (u.t === 'cav' && ter === 'forest') td = 0;
   d += td;
   if (u.t === 'inf' && units.filter(x => x.t === 'inf' && x.hp > 0).length >= 2) d++;
-  return Math.max(0, Math.min(4, d));
+  return Math.max(0, Math.min(3, d));
 }
 function sortFront(units) { return units.filter(u => u.hp > 0).sort((a, b) => UNITS[a.t].order - UNITS[b.t].order || a.hp - b.hp); }
 function attackers(stack, target) {
@@ -508,10 +517,19 @@ function resolveCombat(att, def) {
     }
     rec.phases.push(ph);
   }
-  if (melee.length && def.units.some(u => u.hp > 0)) {
-    const p1 = { label: 'Melee', by: att.side, rolls: [], saves: [] }, p2 = { label: 'Counterattack', by: def.side, rolls: [], saves: [] };
+  const flank = flankCount(att.side, def, att);
+  let meleeHappened = false;
+  const hpNow = st => st.units.reduce((a, u) => a + Math.max(0, u.hp), 0);
+  const routing = () => hpNow(def) < before.d.hp && hpNow(att) >= 2 * hpNow(def);
+  for (let round = 1; round <= MELEE_ROUNDS; round++) {
+    const fighters = melee.filter(u => u.hp > 0);
+    if (!fighters.length || !def.units.some(u => u.hp > 0)) break;
+    if (round > 1 && routing()) break;
+    meleeHappened = true;
+    const rl = MELEE_ROUNDS > 1 ? `, round ${round}` : '';
+    const p1 = { label: `Melee${rl}${flank ? ` (+${flank} flanking)` : ''}`, by: att.side, rolls: [], saves: [] }, p2 = { label: `Counterattack${rl}`, by: def.side, rolls: [], saves: [] };
     let aHits = 0, dHits = 0;
-    for (const u of melee) { const n = needHit(atkOf(u, defTer, false)), v = roll(), hit = v >= n; p1.rolls.push({ t: u.t, v, hit, n, charge: u.t === 'cav' && n < needHit(UNITS.cav.atk) }); if (hit) aHits++; }
+    for (const u of fighters) { const n = needHit(atkOf(u, defTer, false, flank)), v = roll(), hit = v >= n; p1.rolls.push({ t: u.t, v, hit, n }); if (hit) aHits++; }
     for (const u of def.units.filter(u => u.hp > 0 && u.t !== 'art')) { const n = needHit(UNITS[u.t].atk), v = roll(), hit = v >= n; p2.rolls.push({ t: u.t, v, hit, n }); if (hit) dHits++; }
     for (let i = 0; i < aHits; i++) { const f = sortFront(def.units)[0]; if (f) applyHit(def, f, p1.saves); }
     for (let i = 0; i < dHits; i++) { const f = sortFront(att.units)[0]; if (f) applyHit(att, f, p2.saves); }
@@ -520,6 +538,12 @@ function resolveCombat(att, def) {
   for (const u of att.units) { u.att = true; u.used = UNITS[u.t].mv; }
   att.units = att.units.filter(u => u.hp > 0); def.units = def.units.filter(u => u.hp > 0);
   att.exposed = def.exposed = true;
+  const hpOf = st => st.units.reduce((a, u) => a + u.hp, 0);
+  if (meleeHappened && def.units.length && att.units.length && hpOf(def) < before.d.hp && hpOf(att) >= 2 * hpOf(def)) {
+    const opts = retreatHexes(def).sort((a, b) => (enemyAdj(def.side, a.c, a.r) - enemyAdj(def.side, b.c, b.r)) || (dist(b, att) - dist(a, att)));
+    if (opts.length) { rec.routed = 'retreat'; def.from = { c: def.c, r: def.r }; def.c = opts[0].c; def.r = opts[0].r; }
+    else { rec.routed = 'surrender'; def.units = []; }
+  }
   const after = { a: tally(att), d: tally(def) };
   rec.loss = { [att.side]: diffLoss(before.a, after.a), [def.side]: diffLoss(before.d, after.d) };
   rec.dmg = { [att.side]: before.a.hp - after.a.hp, [def.side]: before.d.hp - after.d.hp };
@@ -529,6 +553,8 @@ function resolveCombat(att, def) {
   }
   if (!att.units.length) { G.stacks.splice(G.stacks.indexOf(att), 1); rec.wipedAtt = true; }
   const lt = s => { const parts = TYPES.filter(t => rec.loss[s][t]).map(t => rec.loss[s][t] + ' ' + (rec.loss[s][t] > 1 ? UNITS[t].plural : UNITS[t].name)); return parts.length ? parts.join(', ') : 'none'; };
+  if (rec.routed === 'retreat') pushLog(`The ${sideName(def.side)} stack broke and fell back.`);
+  if (rec.routed === 'surrender') pushLog(`The ${sideName(def.side)} stack was surrounded and surrendered.`);
   pushLog(`${sideName(att.side)} attacked at the ${TER[defTer].name.toLowerCase()}. Losses: ${sideName(att.side)} ${lt(att.side)}; ${sideName(def.side)} ${lt(def.side)}.`);
   return rec;
 }
@@ -554,7 +580,7 @@ function evDamage(shooters, defUnits, defTer, o = {}) {
   const fv = o.raw ? 1 : valHP(front.t), fd = defOf(front, defUnits, defTer);
   let dmg = 0;
   for (const u of shooters) {
-    const p = pHit(atkOf(u, defTer, o.charge));
+    const p = pHit(atkOf(u, defTer, o.charge, o.melee ? (o.flank || 0) : 0));
     if (u.t === 'art' && !o.melee) {
       let avg = 0; for (const x of defUnits) avg += pFail(defOf(x, defUnits, defTer)) * (o.raw ? 1 : valHP(x.t));
       dmg += p * Math.min(3, defUnits.length) * avg / defUnits.length;
@@ -567,10 +593,15 @@ function evalAttack(units, pos, moved, target, raw) {
   const shooters = units.filter(u => !u.att && (u.t === 'arc' ? d <= arcRange(pos.c, pos.r) : u.t === 'art' ? (!moved && u.used === 0 && d >= 2 && d <= 3) : false));
   const melee = units.filter(u => !u.att && d === 1 && (u.t === 'inf' || u.t === 'cav'));
   if (!shooters.length && !melee.length) return null;
-  const dealt = evDamage(shooters, tU, tT, { raw }) + evDamage(melee, tU, tT, { raw, charge: moved, melee: true });
-  const taken = melee.length ? evDamage(tU.filter(u => u.t !== 'art'), units, terr(pos.c, pos.r), { raw, melee: true }) : 0;
+  const flank = melee.length ? flankCount(enemyOf(target.side), target, G.stacks.find(x => x.units === units)) : 0;
+  const ev = (o) => evDamage(shooters, tU, tT, o) + 1.8 * evDamage(melee, tU, tT, { ...o, charge: moved, melee: true, flank });
+  const dealt = ev({ raw }), dealtHP = ev({ raw: true });
+  const taken = melee.length ? 1.8 * evDamage(tU.filter(u => u.t !== 'art'), units, terr(pos.c, pos.r), { raw, melee: true }) : 0;
   const tval = tU.reduce((a, u) => a + u.hp * (raw ? 1 : valHP(u.t)), 0);
-  return { dealt, taken, tval, shooters, melee, d };
+  const tHP = tU.reduce((a, u) => a + u.hp, 0), aHP = units.reduce((a, u) => a + u.hp, 0);
+  let rout = null;
+  if (melee.length && dealtHP >= 0.5 && dealtHP < tHP && aHP >= 2 * (tHP - dealtHP)) rout = retreatHexes(target).length ? 'retreat' : 'surrender';
+  return { dealt, taken, tval, shooters, melee, d, flank, rout };
 }
 function threatAt(side, units, pos) {
   let th = 0; const ter = terr(pos.c, pos.r);
@@ -624,6 +655,7 @@ function aiChoose(s) {
       if (e.side === s.side || dist(o, e) > 3) continue;
       const ev = evalAttack(s.units, o, !o.stay, e); if (!ev) continue;
       let v = ev.dealt - ev.taken * 0.85; if (ev.dealt >= ev.tval * 0.75) v += ev.tval * 0.5;
+      if (ev.rout === 'surrender') v += ev.tval * 0.6; else if (ev.rout === 'retreat') v += 0.5;
       const mF = fortOf(s.side); if (dist(e, mF) <= 1) v += 3;
       if (!bestAtk || v > bestAtk.v) bestAtk = { e, v };
     }
@@ -685,7 +717,7 @@ function checkElim() {
 }
 async function endTurn() {
   if (G.phase !== 'battle' || G.side !== 'P' || G.busy) return;
-  clearSel();
+  clearSel(); G.undo = [];
   if (finishTurn('P')) return;
   G.side = 'A'; startTurn('A'); render();
   await sleep(250);
@@ -768,7 +800,7 @@ function autoPlace() {
   G.poolSel = null;
 }
 function startBattle() {
-  G.phase = 'battle'; G.side = 'P'; G.turn = 1; startTurn('P'); clearSel();
+  G.phase = 'battle'; G.side = 'P'; G.turn = 1; G.undo = []; startTurn('P'); clearSel();
   pushLog('The battle begins. Red waits beyond the river.');
   updateVisibility(); render();
 }
@@ -802,15 +834,33 @@ function handleHex(c, r) {
   if (s && s.side === 'P') { select(s); render(); return; }
   clearSel(); G.info = s ? { stack: s } : { c, r }; render();
 }
+function snapshot() {
+  return JSON.stringify({ nid: G.nid, sel: G.sel && G.sel.id, stacks: G.stacks.map(({ id, side, c, r, units, exposed }) => ({ id, side, c, r, units, exposed })) });
+}
 function playerMove(node) {
   const units = selUnits();
+  const snap = snapshot();
+  const seenBefore = new Set(G.stacks.filter(s => s.side === 'A' && s.seen).map(s => s.id));
   const moved = moveUnits(G.sel, units, node);
   updateVisibility();
+  if (G.stacks.some(s => s.side === 'A' && s.seen && !seenBefore.has(s.id))) {
+    if (G.undo.length) pushLog('That move revealed Red troops, so earlier moves can no longer be undone.');
+    G.undo = [];
+  } else G.undo.push(snap);
   select(moved); render();
+}
+function undoMove() {
+  if (G.busy || G.phase !== 'battle' || G.side !== 'P' || !G.undo.length) return;
+  const sn = JSON.parse(G.undo.pop());
+  G.nid = sn.nid; G.stacks = sn.stacks;
+  clearSel();
+  const s = G.stacks.find(x => x.id === sn.sel);
+  if (s) select(s);
+  updateVisibility(); render();
 }
 async function playerAttack() {
   const att = G.sel, def = G.target;
-  G.busy = true;
+  G.busy = true; G.undo = [];
   const rec = resolveCombat(att, def);
   G.target = null; G.reach = null;
   updateVisibility(); render();
@@ -994,6 +1044,8 @@ function attackHTML(s, t) {
     <div class="p-head"><span class="sw A"></span><b>Attack the Red stack</b><span class="muted small">${terrLine(t.c, t.r)} · ${ev.d} hex${ev.d > 1 ? 'es' : ''} away</span></div>
     <div class="row"><span>Shooting: <b>${list(ev.shooters)}</b></span><span>Melee: <b>${list(ev.melee)}</b></span></div>
     <div class="row"><span>Expected dealt <span class="big">≈ ${fmt(ev.dealt)} HP</span></span><span>taken <span class="big">≈ ${fmt(ev.taken)} HP</span></span></div>
+    ${ev.flank ? `<div class="hint">Flanking: +${ev.flank} attack in melee from your other stacks next to the target.</div>` : ''}
+    ${ev.rout ? `<div class="hint"><b>${ev.rout === 'surrender' ? 'Likely surrender: it is outnumbered and surrounded.' : 'Likely rout: outnumbered two to one, it should fall back.'}</b></div>` : ''}
     ${t.seen ? '' : '<div class="hint">Red\'s units are hidden, so this estimate assumes all infantry.</div>'}
     <div class="acts"><button class="btn danger" data-act="attack">Attack</button><button class="btn plain" data-act="cancelAtk">Cancel</button><span class="hint" style="align-self:center">or tap the target again</span></div>
   </div>`;
@@ -1008,6 +1060,9 @@ function renderBar() {
   const e = $('#endBtn');
   e.hidden = G.phase !== 'battle';
   e.disabled = G.side !== 'P' || G.busy;
+  const u = $('#undoBtn');
+  u.hidden = G.phase !== 'battle';
+  u.disabled = G.side !== 'P' || G.busy || !G.undo.length;
 }
 function render() {
   if (G.phase !== 'buy') updateVisibility();
@@ -1060,12 +1115,14 @@ $('#panelIn').addEventListener('click', e => {
   render();
 });
 $('#endBtn').onclick = () => endTurn();
+$('#undoBtn').onclick = () => undoMove();
 $('#helpBtn').onclick = () => { $('#helpOv').hidden = false; };
 $('#helpClose').onclick = () => { $('#helpOv').hidden = true; };
 $('#helpNew').onclick = () => { if (G.busy) return; $('#helpOv').hidden = true; $('#overOv').hidden = true; newGame(); };
 $('#overNew').onclick = () => { $('#overOv').hidden = true; newGame(); };
 $('#overView').onclick = () => { $('#overOv').hidden = true; };
 document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undoMove(); return; }
   if (e.key === 'Escape') { for (const id of ['#helpOv', '#overOv']) $(id).hidden = true; if (G.phase === 'battle' && !G.busy) { clearSel(); render(); } }
 });
 
@@ -1083,19 +1140,19 @@ function showCombat(rec, auto) {
     const hits = ph.rolls.filter(r => r.hit).length;
     h += `<div class="ph"><div class="phl"><span class="sw ${ph.by}"></span>${sideName(ph.by)} · ${ph.label} <span class="muted">${hits} hit${hits === 1 ? '' : 's'}</span></div><div class="dice">`;
     for (const r of ph.rolls) { h += `<div class="dw">${dieHTML(r.v, r.hit ? 'hit' : 'miss', delay)}${icon(r.t, col)}<span class="small muted">${r.n}+</span></div>`; delay += 60; }
-    h += `</div>`;
     if (ph.saves.length) {
       const sv = ph.saves.filter(x => x.saved).length;
-      h += `<div class="phl"><span class="sw ${other}"></span>${sideName(other)} saves <span class="muted">${sv} of ${ph.saves.length} blocked</span></div><div class="dice">`;
+      h += `<div class="savesep" title="${sideName(other)} saves">→ <span>${sideName(other)} saves ${sv}/${ph.saves.length}</span></div>`;
       for (const r of ph.saves) { h += `<div class="dw">${dieHTML(r.v, 'sm ' + (r.saved ? 'saved' : 'wound'), delay)}${icon(r.t, other === 'P' ? C.blueD : C.redD)}</div>`; delay += 60; }
-      h += `</div>`;
     }
-    h += `</div>`;
+    h += `</div></div>`;
   }
   $('#cbBody').innerHTML = h;
   const lt = s => { const parts = TYPES.filter(t => rec.loss[s][t]).map(t => rec.loss[s][t] + ' ' + (rec.loss[s][t] > 1 ? UNITS[t].plural : UNITS[t].name)); return parts.length ? 'lost ' + parts.join(', ') : 'lost no units'; };
   let res = `${sideName(rec.att)} took ${rec.dmg[rec.att]} damage and ${lt(rec.att)}. ${sideName(rec.def)} took ${rec.dmg[rec.def]} damage and ${lt(rec.def)}.`;
-  if (rec.wiped) res += ` The ${sideName(rec.wiped)} stack is destroyed${rec.advanced ? ` and ${sideName(rec.att)} advances` : ''}.`;
+  if (rec.routed === 'retreat') res += ` Outnumbered two to one, the ${sideName(rec.def)} stack breaks and falls back a hex.`;
+  else if (rec.routed === 'surrender') res += ` Outnumbered with nowhere to run, the ${sideName(rec.def)} stack surrenders${rec.advanced ? ` and ${sideName(rec.att)} advances` : ''}.`;
+  else if (rec.wiped) res += ` The ${sideName(rec.wiped)} stack is destroyed${rec.advanced ? ` and ${sideName(rec.att)} advances` : ''}.`;
   $('#cbResult').textContent = res;
   ov.hidden = false;
   return new Promise(resolve => {
@@ -1159,7 +1216,7 @@ new ResizeObserver(() => fitView()).observe($('#mapwrap'));
 
 /* ================= test hook + boot ================= */
 window.HEX = {
-  G, newGame, autoPlace, startBattle, aiTurn, endTurn,
+  G, newGame, autoPlace, undoMove, startBattle, aiTurn, endTurn,
   screenOf(c, r) { const p = hexXY(c, r), b = svg.getBoundingClientRect(); return { x: b.left + view.x + p.x * view.k, y: b.top + view.y + p.y * view.k }; },
   async autoBattle(maxTurns = 80) {
     while (G.phase === 'battle' && G.turn <= maxTurns) {
