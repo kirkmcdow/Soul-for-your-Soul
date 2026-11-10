@@ -241,6 +241,7 @@ table.ter td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
     <div class="cards" id="buyCards"></div>
     <div class="sheet-acts">
       <button class="btn plain" id="buyClear">Clear</button>
+      <button class="btn plain" id="buyDemo">▶ Watch a demo battle</button>
       <button class="btn plain" id="buyPreset">Balanced army</button>
       <button class="btn primary" id="buyGo">Deploy army</button>
     </div>
@@ -252,15 +253,16 @@ table.ter td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
   <div class="sheet"><div class="sheet-in">
     <h2>Field manual</h2>
     <div class="rules">
-      <section><h4>How to win</h4><p>Destroy every Red stack, or end your turn with one of your stacks standing on Red's fort (the hex with the red flag at the top of the map).</p></section>
+      <section><h4>How to win</h4><p>Destroy every Red stack, or capture Red's fort (the hex with the red flag at the top of the map). To capture it, end your turn with a stack on the fort and keep it there through Red's next turn. Red wins the same way, so if Red reaches your fort you get one turn to drive it off.</p></section>
       <section><h4>Your turn</h4><p>Tap a stack, then tap a pale hex to move or a red ring to attack. Each stack may move, then attack once. Attacking ends that stack's turn. Press <b>End turn</b> when you're done.</p></section>
       <section><h4>Stacks</h4><p>A stack holds up to 10 units of any mix and moves at the speed of its slowest unit. Use <b>Split</b> to send some units off on their own. Move onto your own stack to merge.</p></section>
       <section><h4>Zones of control</h4><p>Moving next to an enemy stack stops you. Leaving a hex next to an enemy uses all of your remaining movement.</p></section>
       <section><h4>Combat</h4><p>Each attacking unit rolls one die and hits on <b>6 − attack</b> or higher (never better than 2+). For every hit, the unit struck rolls a save and blocks the hit on a roll at or below its defense (never better than 3). Artillery fires first. Then infantry and cavalry fight up to two rounds of melee, and the defender strikes back each round with everything except artillery. Hits land on the front line first: infantry, then cavalry, then artillery. If you wipe out a stack in melee, you advance into its hex.</p></section>
       <section><h4>Flanking and routs</h4><p>Each of your other stacks next to the defender gives your melee units +1 attack (up to +2). After a melee, a defender that took damage and is outnumbered two to one in remaining HP breaks and falls back a hex. If it has nowhere to go, it surrenders. Surround a stack before you strike.</p></section>
+      <section><h4>Watch and learn</h4><p>Press <b>▶ Watch the AI play</b> during your turn, or <b>Watch a demo battle</b> on the muster screen, and the AI plays both sides at medium or fast speed. Stop whenever you like and take over Blue.</p></section>
       <section><h4>Undo</h4><p>The ↶ button takes back your moves this turn, until you attack or a move reveals hidden enemy troops.</p></section>
       <section><h4>Hidden armies</h4><p>You can see how big an enemy stack is (S = 1–3 units, M = 4–6, L = 7–10) but not what's in it. Its units are revealed once you're next to it, have cavalry within 2 hexes, or have fought it. Splitting or merging hides a stack again. Red plays by the same rules.</p></section>
-      <section><h4>Rest</h4><p>Units that neither move nor fight during their turn heal 1 HP, or 2 HP in a village or fort. A stack next to an enemy can't rest.</p></section>
+      <section><h4>Rest</h4><p>Units in a village or your own fort that neither move nor fight during their turn heal 2 HP. There is no healing in the open field, and a stack next to an enemy can't rest.</p></section>
       <section><h4>Terrain</h4>
         <div class="tw"><table class="ter">
           <thead><tr><th>Terrain</th><th>Move cost</th><th>Defense</th><th>Notes</th></tr></thead>
@@ -270,7 +272,7 @@ table.ter td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
             <tr><td>Hill</td><td class="n">2</td><td class="n">+1</td><td>Artillery on a hill fires up to 4 hexes</td></tr>
             <tr><td>Village</td><td class="n">1</td><td class="n">+2</td><td>Resting units heal 2</td></tr>
             <tr><td>Ford</td><td class="n">1</td><td class="n">−1</td><td>The only way across the river</td></tr>
-            <tr><td>Fort</td><td class="n">1</td><td class="n">+2</td><td>Home base. Take the enemy's to win</td></tr>
+            <tr><td>Fort</td><td class="n">1</td><td class="n">+2</td><td>Home base. Only shelters its owner. Hold the enemy's for a full turn to win</td></tr>
           </tbody>
         </table></div>
       </section>
@@ -339,7 +341,7 @@ const TER_NOTE = {
   river: 'Impassable. Cross at a ford.',
   ford: 'The only way across the river. −1 defense while standing in the water.',
   village: '+2 defense. Resting units heal 2 HP here.',
-  fort: '+2 defense and heals 2. End your turn on the enemy fort to win.',
+  fort: '+2 defense and heals 2 for its owner only. Hold the enemy fort through their whole turn to win.',
 };
 const PLANS = {
   balanced: { name: 'Balanced line', agg: 1.0, stacks: [[2, 1, { inf: 5 }], [5, 1, { inf: 4, art: 2 }], [8, 1, { inf: 4 }], [1, 0, { cav: 3 }]] },
@@ -351,7 +353,7 @@ const PRESET = { inf: 13, cav: 3, art: 2 };
 /* ================= helpers ================= */
 const $ = s => document.querySelector(s);
 const key = (c, r) => c + ',' + r;
-const sleep = ms => G.fast ? Promise.resolve() : new Promise(r => setTimeout(r, ms));
+const sleep = ms => G.fast ? Promise.resolve() : new Promise(r => setTimeout(r, ms * (G.auto ? G.tempo : 1)));
 function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 const NB_E = [[1, 0], [0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]], NB_O = [[1, 0], [1, -1], [0, -1], [-1, 0], [0, 1], [1, 1]];
@@ -379,7 +381,7 @@ function hexPts(c, r, scale = 1) {
 const G = {
   phase: 'buy', map: null, seed: 1, turn: 1, side: 'P', stacks: [], nid: 1,
   sel: null, reach: null, split: null, target: null, info: null, busy: false, flash: null,
-  buy: { ...PRESET }, undo: [], pool: null, poolSel: null, aiPlan: 'balanced', log: [], fast: false, winner: null,
+  buy: { ...PRESET }, undo: [], auto: false, tempo: 0.8, pool: null, poolSel: null, aiPlan: 'balanced', log: [], fast: false, winner: null,
   fortP: { c: 5, r: 14 }, fortA: { c: 5, r: 0 },
 };
 const terr = (c, r) => G.map[r][c];
@@ -390,7 +392,12 @@ const stackAt = (c, r) => G.stacks.find(s => s.c === c && s.r === r);
 const mkUnit = t => ({ t, hp: UNITS[t].hp, used: 0, att: false });
 const sizeCat = n => n <= 3 ? 'S' : n <= 6 ? 'M' : 'L';
 const valHP = t => UNITS[t].cost / UNITS[t].hp;
-const planOf = side => ({ agg: (side === 'A' ? PLANS[G.aiPlan].agg : 1) * (1 + Math.min(G.turn, 30) / 12) });
+function strengthRatio(side) {
+  let mine = 0, theirs = 0;
+  for (const s of G.stacks) { if (s.side === side) for (const u of s.units) mine += u.hp * UNITS[u.t].cost / UNITS[u.t].hp; else for (const u of knownUnits(s)) theirs += u.hp * UNITS[u.t].cost / UNITS[u.t].hp; }
+  return mine / Math.max(1, theirs);
+}
+const planOf = side => ({ agg: (side === 'A' ? PLANS[G.aiPlan].agg : 1) * (1 + Math.min(G.turn, 30) / 12) * (strengthRatio(side) >= 1.5 ? 2 : 1) });
 function mpOf(units) { return units.length ? Math.min(...units.map(u => UNITS[u.t].mv - u.used)) : 0; }
 const fresh = units => units.every(u => u.used === 0 && !u.att);
 function pushLog(s) { G.log.unshift(s); G.log.length = Math.min(G.log.length, 6); }
@@ -475,6 +482,8 @@ const artRange = (c, r) => terr(c, r) === 'hill' ? 4 : 3;
 function atkOf(u, defTer, charge, flank = 0) { let a = UNITS[u.t].atk + flank; if (u.t === 'cav' && (charge || u.used > 0) && defTer !== 'forest') a++; return a; }
 function flankCount(side, target, exclude) { return Math.min(2, G.stacks.filter(x => x.side === side && x !== exclude && dist(x, target) === 1).length); }
 function retreatHexes(def) { return neighbors(def.c, def.r).filter(n => !stackAt(n.c, n.r) && terr(n.c, n.r) !== 'river'); }
+// A fort only shelters its owner; invaders standing on it fight as if in the open.
+function terFor(side, c, r) { const t = terr(c, r), f = fortOf(side); return (t === 'fort' && (f.c !== c || f.r !== r)) ? 'plain' : t; }
 function defOf(u, units, ter) {
   let d = UNITS[u.t].def, td = TER[ter].def;
   if (u.t === 'cav' && ter === 'forest') td = 0;
@@ -495,7 +504,7 @@ function targetsFor(stack) {
     .map(t => ({ t, ...attackers(stack, t) })).filter(o => o.shooters.length || o.melee.length);
 }
 function applyHit(stack, unit, saves) {
-  const d = defOf(unit, stack.units, terr(stack.c, stack.r)); const v = roll(); const saved = v <= d;
+  const d = defOf(unit, stack.units, terFor(stack.side, stack.c, stack.r)); const v = roll(); const saved = v <= d;
   saves.push({ t: unit.t, v, saved }); if (!saved) unit.hp--;
 }
 function tally(stack) { const o = { hp: 0 }; for (const u of stack.units) if (u.hp > 0) { o[u.t] = (o[u.t] || 0) + 1; o.hp += u.hp; } return o; }
@@ -586,14 +595,14 @@ function evDamage(shooters, defUnits, defTer, o = {}) {
   return dmg;
 }
 function evalAttack(units, pos, moved, target, raw) {
-  const d = dist(pos, target), tU = knownUnits(target), tT = terr(target.c, target.r);
+  const d = dist(pos, target), tU = knownUnits(target), tT = terFor(target.side, target.c, target.r);
   const shooters = units.filter(u => !u.att && u.t === 'art' && !moved && u.used === 0 && d >= 2 && d <= artRange(pos.c, pos.r));
   const melee = units.filter(u => !u.att && d === 1 && (u.t === 'inf' || u.t === 'cav'));
   if (!shooters.length && !melee.length) return null;
   const flank = melee.length ? flankCount(enemyOf(target.side), target, G.stacks.find(x => x.units === units)) : 0;
   const ev = (o) => evDamage(shooters, tU, tT, o) + 1.8 * evDamage(melee, tU, tT, { ...o, charge: moved, melee: true, flank });
   const dealt = ev({ raw }), dealtHP = ev({ raw: true });
-  const taken = melee.length ? 1.8 * evDamage(tU.filter(u => u.t !== 'art'), units, terr(pos.c, pos.r), { raw, melee: true }) : 0;
+  const taken = melee.length ? 1.8 * evDamage(tU.filter(u => u.t !== 'art'), units, terFor(enemyOf(target.side), pos.c, pos.r), { raw, melee: true }) : 0;
   const tval = tU.reduce((a, u) => a + u.hp * (raw ? 1 : valHP(u.t)), 0);
   const tHP = tU.reduce((a, u) => a + u.hp, 0), aHP = units.reduce((a, u) => a + u.hp, 0);
   let rout = null;
@@ -601,7 +610,7 @@ function evalAttack(units, pos, moved, target, raw) {
   return { dealt, taken, tval, shooters, melee, d, flank, rout };
 }
 function threatAt(side, units, pos) {
-  let th = 0; const ter = terr(pos.c, pos.r);
+  let th = 0; const ter = terFor(side, pos.c, pos.r);
   for (const e of G.stacks) {
     if (e.side === side) continue;
     const eu = knownUnits(e); const mv = e.seen ? Math.min(...eu.map(u => UNITS[u.t].mv)) : 2; const d = dist(e, pos);
@@ -628,13 +637,19 @@ function posScore(s, pos, idle) {
   const t = terr(pos.c, pos.r);
   sc += TER[t].def * 0.35 * Math.min(1.5, units.length / 4); if (t === 'village') sc += 0.3;
   sc -= threatAt(side, units, pos) * 0.55 / agg;
-  const danger = enemies.some(e => dist(e, mF) <= (e.seen ? mpOf(e.units.map(u => ({ ...u, used: 0 }))) : 3) + 1);
+  const danger = enemies.some(e => dist(e, mF) <= (e.seen ? mpOf(e.units.map(u => ({ ...u, used: 0 }))) : 4) + 1);
   if (danger) {
-    const holder = G.stacks.find(x => x.side === side && x !== s && x.c === mF.c && x.r === mF.r);
-    if (!holder) { if (pos.c === mF.c && pos.r === mF.r) sc += 15; else sc -= dist(pos, mF) * 0.25; }
+    const occ = stackAt(mF.c, mF.r);
+    if (occ && occ.side !== side) { sc -= dist(pos, mF) * 1.5; if (dist(pos, mF) === 1) sc += 4; }
+    else if (!occ || occ === s) { if (pos.c === mF.c && pos.r === mF.r) sc += 15; else sc -= dist(pos, mF) * 0.6; }
+  }
+  // Home guard: the friendly stack nearest the fort stays within 2 hexes of it unless another stack already does.
+  const others = G.stacks.filter(x => x.side === side && x !== s);
+  if (enemies.length && others.length && !others.some(x => dist(x, mF) <= 2) && others.every(x => dist(x, mF) >= dist(s, mF))) {
+    const dd = dist(pos, mF); if (dd > 2) sc -= (dd - 2) * 1.2;
   }
   if (idle && !enemyAdj(side, pos.c, pos.r)) {
-    const amt = (t === 'village' || t === 'fort') ? 2 : 1; let h = 0;
+    const amt = (t === 'village' || t === 'fort') ? 2 : 0; let h = 0;
     for (const u of units) h += Math.min(amt, UNITS[u.t].hp - u.hp) * valHP(u.t);
     sc += h * 0.6;
   }
@@ -652,7 +667,7 @@ function aiChoose(s) {
       const ev = evalAttack(s.units, o, !o.stay, e); if (!ev) continue;
       let v = ev.dealt - ev.taken * 0.85; if (ev.dealt >= ev.tval * 0.75) v += ev.tval * 0.5;
       if (ev.rout === 'surrender') v += ev.tval * 0.6; else if (ev.rout === 'retreat') v += 0.5;
-      const mF = fortOf(s.side); if (dist(e, mF) <= 1) v += 3;
+      const mF = fortOf(s.side); if (e.c === mF.c && e.r === mF.r) v += 25; else if (dist(e, mF) <= 1) v += 3;
       if (!bestAtk || v > bestAtk.v) bestAtk = { e, v };
     }
     let total = posScore(s, o, o.stay && fresh(s.units)), atk = null;
@@ -662,13 +677,31 @@ function aiChoose(s) {
   best.gain = best.total - base;
   return best;
 }
-async function aiTurn(side) {
+function describeStack(s) {
+  if (s.side === 'A' && !s.seen) return `a hidden ${sizeCat(s.units.length)} stack`;
+  const o = {}; for (const u of s.units) o[u.t] = (o[u.t] || 0) + 1;
+  return TYPES.filter(t => o[t]).map(t => `${o[t]} ${o[t] > 1 ? UNITS[t].plural : UNITS[t].name}`).join(', ');
+}
+async function startAuto() {
+  if (G.phase !== 'battle' || G.auto || G.busy || G.side !== 'P') return;
+  G.auto = true; clearSel(); G.undo = []; pushLog('Autoplay on. The AI now plays Blue too.'); render();
+  while (G.auto && G.phase === 'battle') {
+    if (G.side !== 'P' || G.busy) { await sleep(200); continue; }
+    await aiTurn('P', () => G.auto);
+    if (!G.auto || G.phase !== 'battle') break;
+    await endTurn();
+  }
+  if (G.phase === 'battle') pushLog('Autoplay off. Your move.');
+  G.auto = false; render();
+}
+async function aiTurn(side, keepGoing = () => true) {
   G.busy = true; render();
   const mine = () => G.stacks.filter(s => s.side === side), hp = st => st.reduce((a, s) => a + s.units.reduce((b, u) => b + u.hp, 0), 0);
   const myHP = hp(mine()), enHP = hp(G.stacks.filter(s => s.side !== side));
   if (myHP <= 3 && enHP >= myHP * 3 + 3) { G.busy = false; gameOver(enemyOf(side), 'surrender'); return; }
   const done = new Set();
   for (let guard = 0; guard < 40; guard++) {
+    if (!keepGoing()) break;
     updateVisibility();
     let pick = null;
     for (const s of mine()) { if (done.has(s.id)) continue; const ch = aiChoose(s); if (!pick || ch.gain > pick.ch.gain) pick = { s, ch }; }
@@ -677,7 +710,12 @@ async function aiTurn(side) {
     const { s, ch } = pick;
     if (ch.o.stay && !ch.atk) continue;
     G.flash = s; render(); await sleep(260);
-    if (!ch.o.stay) { moveUnits(s, s.units, ch.o.node); updateVisibility(); render(); await sleep(430); }
+    if (!ch.o.stay) {
+      const desc = describeStack(s);
+      moveUnits(s, s.units, ch.o.node); updateVisibility();
+      if (G.auto) pushLog(`${sideName(side)}: ${desc} moves to the ${TER[terr(s.c, s.r)].name.toLowerCase()}${enemyAdj(side, s.c, s.r) ? ', into contact' : ''}.`);
+      render(); await sleep(430);
+    }
     if (ch.atk && G.stacks.includes(ch.atk)) {
       updateVisibility();
       const ev = evalAttack(s.units, s, false, ch.atk);
@@ -697,14 +735,18 @@ function startTurn(side) { for (const s of G.stacks) if (s.side === side) for (c
 function heal(side) {
   for (const s of G.stacks) if (s.side === side) {
     if (enemyAdj(side, s.c, s.r)) continue;
-    const t = terr(s.c, s.r), amt = (t === 'village' || t === 'fort') ? 2 : 1;
+    const t = terFor(side, s.c, s.r), amt = (t === 'village' || t === 'fort') ? 2 : 0;
+    if (!amt) continue;
     for (const u of s.units) if (u.used === 0 && !u.att) u.hp = Math.min(UNITS[u.t].hp, u.hp + amt);
   }
 }
 function finishTurn(side) {
   heal(side);
+  // A stack that has survived a whole enemy turn on the enemy's fort takes it.
+  const mf = fortOf(side), held = stackAt(mf.c, mf.r);
+  if (held && held.side !== side) { gameOver(held.side, 'fort'); return true; }
   const ef = fortOf(enemyOf(side)), s = stackAt(ef.c, ef.r);
-  if (s && s.side === side) { gameOver(side, 'fort'); return true; }
+  if (s && s.side === side) pushLog(side === 'P' ? 'Blue troops stand on Red\'s fort! If they survive Red\'s turn, you win.' : 'Red troops stand on your fort! Drive them off this turn or lose the battle.');
   return false;
 }
 function checkElim() {
@@ -723,10 +765,10 @@ async function endTurn() {
   G.turn++; G.side = 'P'; startTurn('P'); updateVisibility(); render();
 }
 function gameOver(winner, why) {
-  G.phase = 'over'; G.winner = winner; G.busy = false; clearSel();
+  G.phase = 'over'; G.winner = winner; G.busy = false; G.auto = false; clearSel();
   const you = winner === 'P';
   const reason = {
-    fort: you ? `Your troops hold Red's fort. Victory on turn ${G.turn}.` : `Red has taken your fort on turn ${G.turn}.`,
+    fort: you ? `Your troops held Red's fort through Red's turn. Victory on turn ${G.turn}.` : `Red held your fort through your turn. Defeat on turn ${G.turn}.`,
     wiped: you ? `Red's army has been destroyed on turn ${G.turn}.` : `Your army has been destroyed on turn ${G.turn}.`,
     surrender: you ? `Red's last troops lay down their arms on turn ${G.turn}.` : `Your army is beaten and surrenders on turn ${G.turn}.`,
   }[why];
@@ -743,6 +785,7 @@ function gameOver(winner, why) {
 
 /* ================= setup ================= */
 function newGame(seed) {
+  G.auto = false;
   G.seed = seed ?? Math.floor(Math.random() * 1e9);
   G.map = genMap(G.seed); G.stacks = []; G.nid = 1; G.turn = 1; G.side = 'P'; G.log = []; G.winner = null;
   clearSel();
@@ -822,6 +865,7 @@ function computeReach() { G.reach = G.sel ? reachable(G.sel, selUnits()) : null;
 function handleHex(c, r) {
   if (G.busy) return;
   const s = stackAt(c, r);
+  if (G.auto) { G.info = s ? { stack: s } : { c, r }; render(); return; }
   if (G.phase === 'deploy') {
     if (inDeploy(c, r)) {
       if (G.poolSel && G.pool[G.poolSel]) placeUnit(c, r);
@@ -989,8 +1033,8 @@ function unitChips(s, opts = {}) {
     return `<${tag} class="uchip${on ? ' on' : ''}${spent ? ' spent' : ''}" ${opts.split ? `data-act="chip" data-i="${i}" aria-pressed="${on}"` : ''}>${icon(u.t, color)}<span>${UNITS[u.t].name}</span>${pips(u)}</${tag}>`;
   }).join('')}</div>`;
 }
-function terrLine(c, r) { const t = terr(c, r), d = TER[t].def; return `${TER[t].name}${d ? ` (${d > 0 ? '+' : ''}${d} def)` : ''}`; }
-function logHTML() { return G.log.length ? `<div class="log">${G.log.slice(0, 3).map(l => `<div>${l}</div>`).join('')}</div>` : ''; }
+function terrLine(c, r, side) { const t = side ? terFor(side, c, r) : terr(c, r), d = TER[t].def; return `${TER[t].name}${d ? ` (${d > 0 ? '+' : ''}${d} def)` : ''}`; }
+function logHTML(n = 3) { return G.log.length ? `<div class="log">${G.log.slice(0, n).map(l => `<div>${l}</div>`).join('')}</div>` : ''; }
 function renderPanel() {
   const P = $('#panelIn'); let h = '';
   if (G.phase === 'buy') h = `<div class="hint">Choose your army to begin.</div>`;
@@ -1001,12 +1045,17 @@ function renderPanel() {
     h += `<div class="hint">Pick a unit type, then tap a shaded hex in your two back rows to add it there. Tap the same hex again to stack more units together. With every unit placed, tapping a stack takes its last unit back.</div>`;
     h += `<div class="acts"><button class="btn plain" data-act="auto">Auto-place</button><button class="btn plain" data-act="clear">Clear</button><button class="btn primary" data-act="start" ${left ? 'disabled' : ''}>Start battle</button></div>`;
     if (G.info) h += infoHTML();
+  } else if (G.phase === 'battle' && G.auto) {
+    h += `<div class="p-head"><span class="sw ${G.side}"></span><h3>Watching: ${G.side === 'P' ? 'Blue' : 'Red'} is moving</h3></div>`;
+    h += `<div class="acts" style="align-items:center"><div class="seg" role="group" aria-label="Speed"><button data-act="tempoM" class="${G.tempo >= 0.8 ? 'on' : ''}">Medium</button><button data-act="tempoF" class="${G.tempo < 0.8 ? 'on' : ''}">Fast</button></div><button class="btn danger" data-act="stopAuto">Stop watching</button></div>`;
+    h += `<div class="hint">The AI plays both sides. Stop at any time to take over Blue at the start of your next move.</div>`;
+    h += logHTML(5);
   } else if (G.phase === 'battle' && G.side === 'A') {
     h += `<div class="p-head"><span class="sw A"></span><h3>Red is moving…</h3></div>${logHTML()}`;
   } else if (G.phase === 'battle' && G.sel) {
     const s = G.sel, mp = mpOf(selUnits());
     h += `<div class="p-head"><span class="sw P"></span><h3>Your stack</h3><span class="muted small">${s.units.length}/10 units</span></div>`;
-    h += `<div class="tags"><span class="tag">Moves left ${Math.max(0, mp)}</span><span class="tag">${terrLine(s.c, s.r)}</span>${enemyAdj('P', s.c, s.r) ? '<span class="tag" style="background:var(--red-l)">Engaged</span>' : ''}</div>`;
+    h += `<div class="tags"><span class="tag">Moves left ${Math.max(0, mp)}</span><span class="tag">${terrLine(s.c, s.r, s.side)}</span>${enemyAdj('P', s.c, s.r) ? '<span class="tag" style="background:var(--red-l)">Engaged</span>' : ''}</div>`;
     if (G.target && !G.split) h += attackHTML(s, G.target);
     if (hasRanged(s) && !G.split) {
       const art = s.units.filter(u => u.t === 'art');
@@ -1032,7 +1081,8 @@ function renderPanel() {
     else {
       const ready = G.stacks.filter(s => s.side === 'P' && canAct(s)).length;
       h += `<div class="p-head"><span class="sw P"></span><h3>Your move</h3><span class="muted small">Turn ${G.turn}</span></div>`;
-      h += `<div class="hint">${ready ? `${ready} stack${ready > 1 ? 's' : ''} can still act. Tap one to give orders.` : 'Every stack has acted. Press End turn.'} Take Red's fort (top of the map) or destroy its army.</div>`;
+      h += `<div class="hint">${ready ? `${ready} stack${ready > 1 ? 's' : ''} can still act. Tap one to give orders.` : 'Every stack has acted. Press End turn.'} Capture Red's fort (top of the map) or destroy its army.</div>`;
+      h += `<div class="acts"><button class="btn plain" data-act="watch">▶ Watch the AI play</button></div>`;
     }
     h += logHTML();
   }
@@ -1043,7 +1093,7 @@ function infoHTML() {
   const i = G.info;
   if (i.stack) {
     const s = i.stack, show = s.side === 'P' || s.seen || G.phase === 'over';
-    let h = `<div class="p-head"><span class="sw ${s.side}"></span><h3>${s.side === 'P' ? 'Your stack' : 'Red stack'}</h3><span class="muted small">${terrLine(s.c, s.r)}</span></div>`;
+    let h = `<div class="p-head"><span class="sw ${s.side}"></span><h3>${s.side === 'P' ? 'Your stack' : 'Red stack'}</h3><span class="muted small">${terrLine(s.c, s.r, s.side)}</span></div>`;
     if (show) h += unitChips(s);
     if (show && hasRanged(s)) h += `<div class="acts"><button class="btn plain" data-act="irange">${i.range ? 'Hide fire range' : 'Show fire range'}</button></div>` + (i.range ? rangeLegend(s) : '');
     else h += `<div class="hint">Contents hidden. Size <b>${sizeCat(s.units.length)}</b> (${{ S: '1–3', M: '4–6', L: '7–10' }[sizeCat(s.units.length)]} units). Move next to it or bring cavalry within 2 hexes to see inside.</div>`;
@@ -1058,7 +1108,7 @@ function attackHTML(s, t) {
   const fmt = n => n.toFixed(1);
   const list = us => { const o = {}; for (const u of us) o[u.t] = (o[u.t] || 0) + 1; return TYPES.filter(k => o[k]).map(k => `${o[k]} ${o[k] > 1 ? UNITS[k].plural : UNITS[k].name}`).join(', ') || '—'; };
   return `<div class="atkcard">
-    <div class="p-head"><span class="sw A"></span><b>Attack the Red stack</b><span class="muted small">${terrLine(t.c, t.r)} · ${ev.d} hex${ev.d > 1 ? 'es' : ''} away</span></div>
+    <div class="p-head"><span class="sw A"></span><b>Attack the Red stack</b><span class="muted small">${terrLine(t.c, t.r, t.side)} · ${ev.d} hex${ev.d > 1 ? 'es' : ''} away</span></div>
     <div class="row"><span>Shooting: <b>${list(ev.shooters)}</b></span><span>Melee: <b>${list(ev.melee)}</b></span></div>
     <div class="row"><span>Expected dealt <span class="big">≈ ${fmt(ev.dealt)} HP</span></span><span>taken <span class="big">≈ ${fmt(ev.taken)} HP</span></span></div>
     ${ev.flank ? `<div class="hint">Flanking: +${ev.flank} attack in melee from your other stacks next to the target.</div>` : ''}
@@ -1072,14 +1122,14 @@ function renderBar() {
   if (G.phase === 'buy') { txt = 'Muster'; col = C.blue; }
   else if (G.phase === 'deploy') { txt = 'Deployment'; col = C.blue; }
   else if (G.phase === 'over') { txt = G.winner === 'P' ? 'Victory' : 'Defeat'; col = G.winner === 'P' ? C.blue : C.red; }
-  else { txt = `Turn ${G.turn} · ${G.side === 'P' ? 'You' : 'Red'}`; col = G.side === 'P' ? C.blue : C.red; }
+  else { txt = `Turn ${G.turn} · ${G.auto ? (G.side === 'P' ? 'Blue AI' : 'Red') : G.side === 'P' ? 'You' : 'Red'}`; col = G.side === 'P' ? C.blue : C.red; }
   chip.innerHTML = `<span class="dot" style="background:${col}"></span>${txt}`;
   const e = $('#endBtn');
   e.hidden = G.phase !== 'battle';
-  e.disabled = G.side !== 'P' || G.busy;
+  e.disabled = G.side !== 'P' || G.busy || G.auto;
   const u = $('#undoBtn');
   u.hidden = G.phase !== 'battle';
-  u.disabled = G.side !== 'P' || G.busy || !G.undo.length;
+  u.disabled = G.side !== 'P' || G.busy || G.auto || !G.undo.length;
 }
 function render() {
   if (G.phase !== 'buy') updateVisibility();
@@ -1113,11 +1163,13 @@ $('#buyCards').addEventListener('click', e => {
 $('#buyClear').onclick = () => { for (const t of TYPES) G.buy[t] = 0; renderBuy(); };
 $('#buyPreset').onclick = () => { G.buy = { ...PRESET }; renderBuy(); };
 $('#buyGo').onclick = () => { if (spent() > 0) startDeploy(); };
+$('#buyDemo').onclick = () => { if (!spent()) G.buy = { ...PRESET }; startDeploy(); autoPlace(); startBattle(); startAuto(); };
 
 /* ================= panel actions ================= */
 $('#panelIn').addEventListener('click', e => {
-  const b = e.target.closest('[data-act]'); if (!b || G.busy) return;
+  const b = e.target.closest('[data-act]'); if (!b) return;
   const a = b.dataset.act;
+  if (G.busy && !['stopAuto', 'tempoM', 'tempoF'].includes(a)) return;
   if (a === 'pool') { G.poolSel = b.dataset.t; }
   else if (a === 'auto') autoPlace();
   else if (a === 'clear') clearDeploy();
@@ -1126,6 +1178,10 @@ $('#panelIn').addEventListener('click', e => {
   else if (a === 'unsplit') { G.split = null; computeReach(); }
   else if (a === 'chip') { const i = +b.dataset.i; if (G.split.has(i)) G.split.delete(i); else G.split.add(i); if (G.split.size === G.sel.units.length) G.split.delete(i); computeReach(); }
   else if (a === 'desel') clearSel();
+  else if (a === 'watch') { startAuto(); return; }
+  else if (a === 'stopAuto') { G.auto = false; }
+  else if (a === 'tempoM') G.tempo = 0.8;
+  else if (a === 'tempoF') G.tempo = 0.4;
   else if (a === 'vmove') G.view = 'move';
   else if (a === 'vrange') { G.view = 'range'; G.target = null; }
   else if (a === 'irange') G.info.range = !G.info.range;
@@ -1180,7 +1236,7 @@ function showCombat(rec, auto) {
     const close = () => { if (done) return; done = true; clearTimeout(tm); ov.hidden = true; ov.removeEventListener('click', onClick); resolve(); };
     const onClick = e => { if (e.target === ov || e.target.id === 'cbClose' || auto) close(); };
     ov.addEventListener('click', onClick);
-    if (auto) tm = setTimeout(close, 2400 + delay);
+    if (auto) tm = setTimeout(close, (G.auto ? 1700 * G.tempo + 400 : 2400) + delay);
   });
 }
 
