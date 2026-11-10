@@ -113,8 +113,6 @@ button.uchip.on{border-color:var(--blue);background:var(--blue-l);box-shadow:0 0
 .selring{fill:none;stroke:var(--brass-hi);stroke-width:3.5}
 .flash{fill:rgba(255,230,140,.35);stroke:#ffd36b;stroke-width:3}
 .rng-art{fill:rgba(214,120,30,.38);stroke:#b8611a;stroke-width:1.5}
-.rng-arc{fill:rgba(90,140,50,.38);stroke:#4d7a2c;stroke-width:1.5}
-.rng-both{fill:rgba(214,120,30,.38);stroke:#4d7a2c;stroke-width:3}
 .seg{display:inline-flex;border-radius:9px;overflow:hidden;border:1.5px solid var(--wood-2)}
 .seg button{border:0;padding:7px 12px;font-weight:800;background:#f6edd6;cursor:pointer;font-size:13.5px}
 .seg button.on{background:var(--wood-2);color:var(--parch)}
@@ -216,13 +214,6 @@ table.ter td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
             <circle cx="-6" cy="-3" r="0.9" fill="#f6e9c8"/><circle cx="6" cy="-3" r="0.9" fill="#f6e9c8"/>
             <circle cx="-4.6" cy="2.6" r="0.9" fill="#f6e9c8"/><circle cx="4.6" cy="2.6" r="0.9" fill="#f6e9c8"/>
           </symbol>
-          <symbol id="i-arc" viewBox="-10 -10 20 20">
-            <path d="M-3.5,-9 Q9.5,0 -3.5,9" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>
-            <path d="M-3.5,-9 L-3.5,9" stroke="currentColor" stroke-width="1"/>
-            <path d="M-9.5,0 H6" stroke="currentColor" stroke-width="1.9"/>
-            <path d="M9.5,0 L4.5,-3.2 L4.5,3.2 Z" fill="currentColor"/>
-            <path d="M-9.5,0 l-1,-2.5 M-9.5,0 l-1,2.5" stroke="currentColor" stroke-width="1.2"/>
-          </symbol>
           <symbol id="i-art" viewBox="-10 -10 20 20">
             <g transform="rotate(-24)"><rect x="-8" y="-3.3" width="17" height="6.6" rx="2.4" fill="currentColor"/><circle cx="-7.5" cy="0" r="3.6" fill="currentColor"/></g>
             <circle cx="-1.5" cy="5" r="4.3" fill="#f6e9c8" stroke="currentColor" stroke-width="2.1"/>
@@ -265,7 +256,7 @@ table.ter td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
       <section><h4>Your turn</h4><p>Tap a stack, then tap a pale hex to move or a red ring to attack. Each stack may move, then attack once. Attacking ends that stack's turn. Press <b>End turn</b> when you're done.</p></section>
       <section><h4>Stacks</h4><p>A stack holds up to 10 units of any mix and moves at the speed of its slowest unit. Use <b>Split</b> to send some units off on their own. Move onto your own stack to merge.</p></section>
       <section><h4>Zones of control</h4><p>Moving next to an enemy stack stops you. Leaving a hex next to an enemy uses all of your remaining movement.</p></section>
-      <section><h4>Combat</h4><p>Each attacking unit rolls one die and hits on <b>6 − attack</b> or higher (never better than 2+). For every hit, the unit struck rolls a save and blocks the hit on a roll at or below its defense (never better than 3). Archers and artillery fire first. Then infantry and cavalry fight up to two rounds of melee, and the defender strikes back each round with everything except artillery. Hits land on the front line first: infantry, then cavalry, archers, artillery. If you wipe out a stack in melee, you advance into its hex.</p></section>
+      <section><h4>Combat</h4><p>Each attacking unit rolls one die and hits on <b>6 − attack</b> or higher (never better than 2+). For every hit, the unit struck rolls a save and blocks the hit on a roll at or below its defense (never better than 3). Artillery fires first. Then infantry and cavalry fight up to two rounds of melee, and the defender strikes back each round with everything except artillery. Hits land on the front line first: infantry, then cavalry, then artillery. If you wipe out a stack in melee, you advance into its hex.</p></section>
       <section><h4>Flanking and routs</h4><p>Each of your other stacks next to the defender gives your melee units +1 attack (up to +2). After a melee, a defender that took damage and is outnumbered two to one in remaining HP breaks and falls back a hex. If it has nowhere to go, it surrenders. Surround a stack before you strike.</p></section>
       <section><h4>Undo</h4><p>The ↶ button takes back your moves this turn, until you attack or a move reveals hidden enemy troops.</p></section>
       <section><h4>Hidden armies</h4><p>You can see how big an enemy stack is (S = 1–3 units, M = 4–6, L = 7–10) but not what's in it. Its units are revealed once you're next to it, have cavalry within 2 hexes, or have fought it. Splitting or merging hides a stack again. Red plays by the same rules.</p></section>
@@ -276,7 +267,7 @@ table.ter td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
           <tbody>
             <tr><td>Plains</td><td class="n">1</td><td class="n">—</td><td>Open ground</td></tr>
             <tr><td>Forest</td><td class="n">2 (cavalry 3)</td><td class="n">+1</td><td>Cavalry gets no cover here and can't charge into it</td></tr>
-            <tr><td>Hill</td><td class="n">2</td><td class="n">+1</td><td>Archers on a hill shoot 3 hexes</td></tr>
+            <tr><td>Hill</td><td class="n">2</td><td class="n">+1</td><td>Artillery on a hill fires up to 4 hexes</td></tr>
             <tr><td>Village</td><td class="n">1</td><td class="n">+2</td><td>Resting units heal 2</td></tr>
             <tr><td>Ford</td><td class="n">1</td><td class="n">−1</td><td>The only way across the river</td></tr>
             <tr><td>Fort</td><td class="n">1</td><td class="n">+2</td><td>Home base. Take the enemy's to win</td></tr>
@@ -328,12 +319,10 @@ const UNITS = {
          spec: 'Shield wall: +1 defense while 2 or more infantry share the stack. Holds the front line and takes hits first.' },
   cav: { name: 'Cavalry', plural: 'Cavalry', hp: 3, atk: 3, def: 1, mv: 4, cost: 3, order: 1,
          spec: 'Charge: +1 attack after moving this turn (not into forest). Spots hidden stacks up to 2 hexes away.' },
-  arc: { name: 'Archer', plural: 'Archers', hp: 1, atk: 2, def: 0, mv: 2, cost: 2, order: 2,
-         spec: 'Volley: shoots 2 hexes (3 from a hill) before melee. Targets can\'t shoot back at range.' },
   art: { name: 'Artillery', plural: 'Artillery', hp: 2, atk: 4, def: 0, mv: 1, cost: 4, order: 3,
-         spec: 'Bombard: fires 2–3 hexes and each hit strikes up to 3 random units. Can\'t fire after moving or at adjacent hexes.' },
+         spec: 'Bombard: fires 2–3 hexes (up to 4 from a hill) and each hit strikes up to 3 random units. Can\'t fire after moving or at adjacent hexes.' },
 };
-const TYPES = ['inf', 'cav', 'arc', 'art'];
+const TYPES = ['inf', 'cav', 'art'];
 const TER = {
   plain:   { name: 'Plains',  cost: 1, def: 0 },
   forest:  { name: 'Forest',  cost: 2, def: 1 },
@@ -346,18 +335,18 @@ const TER = {
 const TER_NOTE = {
   plain: 'Open ground. No cover.',
   forest: '+1 defense, except for cavalry. Costs 2 to enter (3 for stacks with cavalry). Cavalry can\'t charge into it.',
-  hill: '+1 defense. Costs 2 to enter. Archers on a hill shoot 3 hexes.',
+  hill: '+1 defense. Costs 2 to enter. Artillery on a hill fires up to 4 hexes.',
   river: 'Impassable. Cross at a ford.',
   ford: 'The only way across the river. −1 defense while standing in the water.',
   village: '+2 defense. Resting units heal 2 HP here.',
   fort: '+2 defense and heals 2. End your turn on the enemy fort to win.',
 };
 const PLANS = {
-  balanced: { name: 'Balanced line', agg: 1.0, stacks: [[2, 1, { inf: 4, arc: 1 }], [5, 1, { inf: 3, arc: 1, art: 2 }], [8, 1, { inf: 3, arc: 1 }], [1, 0, { cav: 2 }]] },
-  rush:     { name: 'Cavalry rush', agg: 1.35, stacks: [[1, 1, { cav: 3 }], [9, 1, { cav: 3 }], [4, 1, { inf: 4, arc: 1 }], [6, 1, { inf: 4, arc: 1 }]] },
-  guns:     { name: 'Grand battery', agg: 0.75, stacks: [[3, 1, { art: 2, inf: 3 }], [7, 1, { art: 2, inf: 3 }], [5, 0, { inf: 2, arc: 3 }]] },
+  balanced: { name: 'Balanced line', agg: 1.0, stacks: [[2, 1, { inf: 5 }], [5, 1, { inf: 4, art: 2 }], [8, 1, { inf: 4 }], [1, 0, { cav: 3 }]] },
+  rush:     { name: 'Cavalry rush', agg: 1.35, stacks: [[1, 1, { cav: 3 }], [9, 1, { cav: 3 }], [4, 1, { inf: 6 }], [6, 1, { inf: 6 }]] },
+  guns:     { name: 'Grand battery', agg: 0.75, stacks: [[3, 1, { art: 2, inf: 4 }], [7, 1, { art: 2, inf: 4 }], [5, 0, { inf: 6 }]] },
 };
-const PRESET = { inf: 10, cav: 2, arc: 3, art: 2 };
+const PRESET = { inf: 13, cav: 3, art: 2 };
 
 /* ================= helpers ================= */
 const $ = s => document.querySelector(s);
@@ -482,7 +471,7 @@ function moveUnits(stack, units, node) {
 /* ================= combat ================= */
 const roll = () => 1 + Math.floor(Math.random() * 6);
 const needHit = a => Math.max(2, Math.min(6, 6 - a));
-const arcRange = (c, r) => terr(c, r) === 'hill' ? 3 : 2;
+const artRange = (c, r) => terr(c, r) === 'hill' ? 4 : 3;
 function atkOf(u, defTer, charge, flank = 0) { let a = UNITS[u.t].atk + flank; if (u.t === 'cav' && (charge || u.used > 0) && defTer !== 'forest') a++; return a; }
 function flankCount(side, target, exclude) { return Math.min(2, G.stacks.filter(x => x.side === side && x !== exclude && dist(x, target) === 1).length); }
 function retreatHexes(def) { return neighbors(def.c, def.r).filter(n => !stackAt(n.c, n.r) && terr(n.c, n.r) !== 'river'); }
@@ -496,13 +485,13 @@ function defOf(u, units, ter) {
 function sortFront(units) { return units.filter(u => u.hp > 0).sort((a, b) => UNITS[a.t].order - UNITS[b.t].order || a.hp - b.hp); }
 function attackers(stack, target) {
   const d = dist(stack, target);
-  const shooters = stack.units.filter(u => !u.att && (u.t === 'arc' ? d <= arcRange(stack.c, stack.r) : u.t === 'art' ? (u.used === 0 && d >= 2 && d <= 3) : false));
+  const shooters = stack.units.filter(u => !u.att && u.t === 'art' && u.used === 0 && d >= 2 && d <= artRange(stack.c, stack.r));
   const melee = stack.units.filter(u => !u.att && d === 1 && (u.t === 'inf' || u.t === 'cav'));
   return { d, shooters, melee };
 }
 function targetsFor(stack) {
   if (stack.units.every(u => u.att)) return [];
-  return G.stacks.filter(s => s.side !== stack.side && dist(stack, s) <= 3)
+  return G.stacks.filter(s => s.side !== stack.side && dist(stack, s) <= 4)
     .map(t => ({ t, ...attackers(stack, t) })).filter(o => o.shooters.length || o.melee.length);
 }
 function applyHit(stack, unit, saves) {
@@ -516,7 +505,7 @@ function resolveCombat(att, def) {
   const before = { a: tally(att), d: tally(def) };
   const rec = { att: att.side, def: def.side, ter: defTer, d, phases: [] };
   if (shooters.length) {
-    const ph = { label: shooters.some(u => u.t === 'art') ? (shooters.some(u => u.t === 'arc') ? 'Volley and bombardment' : 'Bombardment') : 'Volley', by: att.side, rolls: [], saves: [] };
+    const ph = { label: 'Bombardment', by: att.side, rolls: [], saves: [] };
     for (const u of shooters) {
       const n = needHit(UNITS[u.t].atk), v = roll(), hit = v >= n; ph.rolls.push({ t: u.t, v, hit, n });
       if (!hit) continue;
@@ -598,7 +587,7 @@ function evDamage(shooters, defUnits, defTer, o = {}) {
 }
 function evalAttack(units, pos, moved, target, raw) {
   const d = dist(pos, target), tU = knownUnits(target), tT = terr(target.c, target.r);
-  const shooters = units.filter(u => !u.att && (u.t === 'arc' ? d <= arcRange(pos.c, pos.r) : u.t === 'art' ? (!moved && u.used === 0 && d >= 2 && d <= 3) : false));
+  const shooters = units.filter(u => !u.att && u.t === 'art' && !moved && u.used === 0 && d >= 2 && d <= artRange(pos.c, pos.r));
   const melee = units.filter(u => !u.att && d === 1 && (u.t === 'inf' || u.t === 'cav'));
   if (!shooters.length && !melee.length) return null;
   const flank = melee.length ? flankCount(enemyOf(target.side), target, G.stacks.find(x => x.units === units)) : 0;
@@ -618,8 +607,7 @@ function threatAt(side, units, pos) {
     const eu = knownUnits(e); const mv = e.seen ? Math.min(...eu.map(u => UNITS[u.t].mv)) : 2; const d = dist(e, pos);
     let a = [];
     if (d <= mv + 1) a = a.concat(eu.filter(u => u.t === 'inf' || u.t === 'cav'));
-    if (d <= mv + 2) a = a.concat(eu.filter(u => u.t === 'arc'));
-    if (d >= 2 && d <= 3) a = a.concat(eu.filter(u => u.t === 'art'));
+    if (d >= 2 && d <= artRange(e.c, e.r)) a = a.concat(eu.filter(u => u.t === 'art'));
     if (a.length) th += evDamage(a, units, ter, { charge: true });
   }
   return th;
@@ -628,7 +616,7 @@ function threatAt(side, units, pos) {
 /* ================= AI ================= */
 function posScore(s, pos, idle) {
   const side = s.side, en = enemyOf(side), eF = fortOf(en), mF = fortOf(side), agg = planOf(side).agg;
-  const units = s.units, ranged = units.every(u => u.t === 'arc' || u.t === 'art'), hasArt = units.some(u => u.t === 'art');
+  const units = s.units, ranged = units.every(u => u.t === 'art'), hasArt = units.some(u => u.t === 'art');
   let sc = 0;
   if (pos.c === eF.c && pos.r === eF.r) sc += 1000;
   sc -= dist(pos, eF) * 0.3 * agg * (ranged ? 0.5 : 1);
@@ -660,7 +648,7 @@ function aiChoose(s) {
   for (const o of opts) {
     let bestAtk = null;
     for (const e of G.stacks) {
-      if (e.side === s.side || dist(o, e) > 3) continue;
+      if (e.side === s.side || dist(o, e) > 4) continue;
       const ev = evalAttack(s.units, o, !o.stay, e); if (!ev) continue;
       let v = ev.dealt - ev.taken * 0.85; if (ev.dealt >= ev.tval * 0.75) v += ev.tval * 0.5;
       if (ev.rout === 'surrender') v += ev.tval * 0.6; else if (ev.rout === 'retreat') v += 0.5;
@@ -802,7 +790,6 @@ function autoPlace() {
     G.poolSel = t; placeUnit(c, r);
   };
   let i = 0; while (G.pool.inf) put('inf', ...slots[i++ % 3]);
-  i = 1; while (G.pool.arc) put('arc', ...slots[i++ % 3]);
   i = 1; while (G.pool.art) put('art', ...slots[(i++) % 3]);
   i = 0; while (G.pool.cav) put('cav', ...(i++ % 2 ? [9, 14] : [1, 14]));
   G.poolSel = null;
@@ -815,20 +802,18 @@ function startBattle() {
 
 /* ================= player interaction ================= */
 function clearSel() { G.sel = null; G.reach = null; G.split = null; G.target = null; G.info = null; G.view = 'move'; }
-const hasRanged = s => s.units.some(u => u.t === 'arc' || u.t === 'art');
+const hasRanged = s => s.units.some(u => u.t === 'art');
 function rangeHexes(s) {
-  const out = []; const ar = s.units.some(u => u.t === 'arc') ? arcRange(s.c, s.r) : 0, art = s.units.some(u => u.t === 'art');
+  const out = []; const art = s.units.some(u => u.t === 'art'), ar = artRange(s.c, s.r);
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
     const d = dist(s, { c, r }); if (!d) continue;
-    const a = d <= ar, b = art && d >= 2 && d <= 3;
-    if (a || b) out.push({ c, r, cls: a && b ? 'rng-both' : b ? 'rng-art' : 'rng-arc' });
+    if (art && d >= 2 && d <= ar) out.push({ c, r, cls: 'rng-art' });
   }
   return out;
 }
 function rangeLegend(s) {
   const parts = [];
-  if (s.units.some(u => u.t === 'art')) parts.push(`<span><i style="background:rgba(214,120,30,.6)"></i>Artillery: 2–3 hexes</span>`);
-  if (s.units.some(u => u.t === 'arc')) parts.push(`<span><i style="background:rgba(90,140,50,.6)"></i>Archers: ${arcRange(s.c, s.r) === 3 ? '1–3 hexes (hill)' : '1–2 hexes'}</span>`);
+  if (s.units.some(u => u.t === 'art')) parts.push(`<span><i style="background:rgba(214,120,30,.6)"></i>Artillery: ${artRange(s.c, s.r) === 4 ? '2–4 hexes (from a hill)' : '2–3 hexes'}</span>`);
   return `<div class="legend">${parts.join('')}</div>`;
 }
 function selUnits() { return G.split ? G.sel.units.filter((u, i) => G.split.has(i)) : G.sel.units; }
